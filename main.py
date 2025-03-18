@@ -2,18 +2,86 @@ import os
 import subprocess
 import sys
 import logging
+import site
+import json
+from pathlib import Path
+import ctypes
+from packaging import version
 
-# Attempt to install missing packages automatically
-def install_package(package_name):
-    subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
+# Get the application data directory
+def get_app_data_dir():
+    if sys.platform == 'win32':
+        return os.path.join(os.environ['LOCALAPPDATA'], 'OniPlugin')
+    return os.path.expanduser('~/.oniplugin')
 
-# Try importing the required packages, and install them if they are missing
-try:
-    import requests
-except ImportError:
-    print("requests module not found. Installing...")
-    install_package("requests")
-    import requests  # After installation, import it again
+# Ensure we have admin rights on Windows
+def is_admin():
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
+
+def request_admin():
+    if sys.platform == 'win32':
+        if not is_admin():
+            ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+            sys.exit(0)
+
+# Setup application directories and environment
+def setup_environment():
+    app_dir = get_app_data_dir()
+    logs_dir = os.path.join(app_dir, 'logs')
+    data_dir = os.path.join(app_dir, 'data')
+    
+    # Create necessary directories
+    os.makedirs(logs_dir, exist_ok=True)
+    os.makedirs(data_dir, exist_ok=True)
+    
+    # Setup logging
+    log_file = os.path.join(logs_dir, 'error_log.txt')
+    logging.basicConfig(
+        filename=log_file,
+        level=logging.ERROR,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
+    
+    return app_dir, data_dir
+
+# Initialize the environment
+APP_DIR, DATA_DIR = setup_environment()
+
+# Import version
+from version import VERSION
+
+# Required packages
+REQUIRED_PACKAGES = {
+    'requests': 'requests>=2.31.0',
+    'packaging': 'packaging>=23.2'
+}
+
+def ensure_dependencies():
+    """Ensure all required packages are available"""
+    missing_packages = []
+    for package, requirement in REQUIRED_PACKAGES.items():
+        try:
+            __import__(package)
+        except ImportError:
+            missing_packages.append(requirement)
+    
+    if missing_packages:
+        print("Installing required packages...")
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install"] + missing_packages)
+        except subprocess.CalledProcessError as e:
+            logging.error(f"Failed to install dependencies: {e}")
+            print("Failed to install required packages. Please run as administrator.")
+            sys.exit(1)
+
+# Ensure dependencies are available
+ensure_dependencies()
+
+# Now import requests after ensuring it's available
+import requests
 
 # Setup logging to a file
 logging.basicConfig(filename='error_log.txt', level=logging.ERROR)
