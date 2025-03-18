@@ -59,19 +59,36 @@ REQUIRED_PACKAGES = {
     'packaging': 'packaging>=23.2'
 }
 
+def check_package_version(package_name, required_version):
+    """Check if package is installed with correct version"""
+    try:
+        pkg = __import__(package_name)
+        if hasattr(pkg, '__version__'):
+            installed_version = pkg.__version__
+            if version.parse(installed_version) >= version.parse(required_version.split('>=')[1]):
+                return True
+    except ImportError:
+        pass
+    return False
+
 def ensure_dependencies():
     """Ensure all required packages are available"""
+    if getattr(sys, 'frozen', False):
+        # Skip dependency check if running as compiled executable
+        return
+        
     missing_packages = []
     for package, requirement in REQUIRED_PACKAGES.items():
-        try:
-            __import__(package)
-        except ImportError:
+        required_version = requirement.split('>=')[1]
+        if not check_package_version(package, required_version):
             missing_packages.append(requirement)
     
     if missing_packages:
         print("Installing required packages...")
         try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install"] + missing_packages)
+            for package in missing_packages:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+            print("Package installation completed.")
         except subprocess.CalledProcessError as e:
             logging.error(f"Failed to install dependencies: {e}")
             print("Failed to install required packages. Please run as administrator.")
@@ -81,7 +98,12 @@ def ensure_dependencies():
 ensure_dependencies()
 
 # Now import requests after ensuring it's available
-import requests
+try:
+    import requests
+except ImportError:
+    print("Critical error: Could not import required packages.")
+    logging.error("Failed to import requests after installation attempt")
+    sys.exit(1)
 
 # Setup logging to a file
 logging.basicConfig(filename='error_log.txt', level=logging.ERROR)

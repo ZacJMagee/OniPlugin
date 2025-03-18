@@ -7,7 +7,17 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[('version.py', '.')],
-    hiddenimports=['packaging', 'packaging.version', 'packaging.specifiers', 'packaging.requirements'],
+    hiddenimports=[
+        'packaging',
+        'packaging.version',
+        'packaging.specifiers',
+        'packaging.requirements',
+        'requests',
+        'urllib3',
+        'idna',
+        'chardet',
+        'certifi'
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
