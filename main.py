@@ -1,5 +1,56 @@
 import os
 import subprocess
+import requests
+import sys
+
+# Function to check for updates
+def check_for_updates():
+    # Current version of the tool (could be read from a version file or hardcoded)
+    current_version = "1.0.0"  # You can replace this with actual logic to fetch current version if needed.
+
+    # URL to check for the latest release (GitHub API)
+    repo_url = "https://api.github.com/repos/ZacJMagee/OniPlugin/releases/latest"
+
+    try:
+        # Request the latest release information from GitHub
+        response = requests.get(repo_url)
+        latest_release = response.json()
+
+        # Extract the latest version tag
+        latest_version = latest_release["tag_name"]
+
+        # Check if the current version is outdated
+        if current_version != latest_version:
+            print(f"Update available! Current version: {current_version}, Latest version: {latest_version}")
+            return True
+        else:
+            print(f"You are using the latest version: {current_version}")
+            return False
+    except Exception as e:
+        print(f"Error checking for updates: {e}")
+        return False
+
+# Function to pull the latest code from the repository
+def update_codebase():
+    try:
+        print("Pulling the latest updates from the repository...")
+        subprocess.check_call(['git', 'pull'])
+        print("Code updated successfully!")
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to update codebase: {e}")
+        sys.exit(1)
+
+# Function to execute the update process
+def update_tool():
+    if check_for_updates():
+        user_input = input("Would you like to update to the latest version? (yes/no): ").strip().lower()
+        if user_input == "yes":
+            update_codebase()
+            print("Please restart the tool to apply the update.")
+        else:
+            print("Update skipped.")
+    else:
+        print("No updates found.")
 
 # Step 1: Detect connected devices using adb
 def get_connected_devices():
@@ -98,6 +149,11 @@ def write_usernames_to_likesource(device_folder, models, usernames):
 
 # Main function
 def main():
+    print("Welcome to the tool!")
+
+    # Step 0: Check for updates before proceeding
+    update_tool()
+
     # Step 1: Get connected devices
     devices = get_connected_devices()
     

@@ -1,0 +1,28 @@
+# Ignore Python bytecode files
+__pycache__/
+*.py[cod]
+
+# Ignore virtual environment directories
+venv/
+env/
+
+# Ignore the build and dist directories from PyInstaller
+build/
+dist/
+
+# Ignore PyInstaller log files
+*.log
+
+# Ignore macOS Finder files
+.DS_Store
+
+# Ignore Windows-specific files
+Thumbs.db
+
+# Ignore the temporary files created by IDEs or editors
+.idea/
+.vscode/
+
+# Ignore the version control information
+.git/
+
