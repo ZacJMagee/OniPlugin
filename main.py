@@ -8,6 +8,28 @@ from pathlib import Path
 import ctypes
 from packaging import version
 
+# Function to read usernames from a file
+def read_usernames_from_file(file_path):
+    try:
+        with open(file_path, 'r') as file:
+            usernames = file.readlines()
+        return [username.strip() for username in usernames]
+    except Exception as e:
+        logging.error(f"Error reading file {file_path}: {e}")
+        print(f"Error reading file {file_path}: {e}")
+        return []
+
+# Function to get connected devices
+def get_connected_devices():
+    base_path = r"C:\Users\Fredrick\Desktop\full_igbot_13.1.3"
+    try:
+        return [folder for folder in os.listdir(base_path) 
+                if os.path.isdir(os.path.join(base_path, folder))]
+    except Exception as e:
+        logging.error(f"Error getting connected devices: {e}")
+        print(f"Error getting connected devices: {e}")
+        return []
+
 # Get the application data directory
 def get_app_data_dir():
     if sys.platform == 'win32':
@@ -46,87 +68,23 @@ def setup_environment():
     )
     
     return app_dir, data_dir
-
-# Initialize the environment
-APP_DIR, DATA_DIR = setup_environment()
-
-# Import version
-from version import VERSION
-
-# Required packages
-REQUIRED_PACKAGES = {
-    'requests': 'requests>=2.31.0',
-    'packaging': 'packaging>=23.2'
-}
-
-def check_package_version(package_name, required_version):
-    """Check if package is installed with correct version"""
-    try:
-        pkg = __import__(package_name)
-        if hasattr(pkg, '__version__'):
-            installed_version = pkg.__version__
-            if version.parse(installed_version) >= version.parse(required_version.split('>=')[1]):
-                return True
-    except ImportError:
-        pass
-    return False
-
-def ensure_dependencies():
-    """Ensure all required packages are available"""
-    if getattr(sys, 'frozen', False):
-        # Skip dependency check if running as compiled executable
-        return
-        
-    missing_packages = []
-    for package, requirement in REQUIRED_PACKAGES.items():
-        required_version = requirement.split('>=')[1]
-        if not check_package_version(package, required_version):
-            missing_packages.append(requirement)
-    
-    if missing_packages:
-        print("Installing required packages...")
-        try:
-            for package in missing_packages:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-            print("Package installation completed.")
-        except subprocess.CalledProcessError as e:
-            logging.error(f"Failed to install dependencies: {e}")
-            print("Failed to install required packages. Please run as administrator.")
-            sys.exit(1)
-
-# Ensure dependencies are available
-ensure_dependencies()
-
-# Now import requests after ensuring it's available
-try:
-    import requests
-except ImportError:
-    print("Critical error: Could not import required packages.")
-    logging.error("Failed to import requests after installation attempt")
-    sys.exit(1)
-
-# Setup logging to a file
-logging.basicConfig(filename='error_log.txt', level=logging.ERROR)
-
-# Function to check for updates
 def check_for_updates():
     try:
-        # Current version of the tool (could be read from a version file or hardcoded)
-        current_version = "1.0.0"  # You can replace this with actual logic to fetch current version if needed.
-
-        # URL to check for the latest release (GitHub API)
-        repo_url = "https://api.github.com/repos/ZacJMagee/OniPlugin/releases/latest"
-
-        # Request the latest release information from GitHub
-        response = requests.get(repo_url)
-        latest_release = response.json()
-
-        # Extract the latest version tag
-        latest_version = latest_release["tag_name"]
-
-        # Check if the current version is outdated
-        if current_version != latest_version:
-            print(f"Update available! Current version: {current_version}, Latest version: {latest_version}")
+        from version import VERSION as current_version
+        
+        # Get the latest commit hash
+        result = subprocess.run(['git', 'ls-remote', 'origin', 'HEAD'], 
+                              capture_output=True, text=True)
+        remote_hash = result.stdout.split()[0]
+        
+        # Get the current commit hash
+        result = subprocess.run(['git', 'rev-parse', 'HEAD'], 
+                              capture_output=True, text=True)
+        local_hash = result.stdout.strip()
+        
+        if remote_hash != local_hash:
+            print(f"Update available! Current version: {current_version}")
+            print("New changes are available in the repository.")
             return True
         else:
             print(f"You are using the latest version: {current_version}")
@@ -136,7 +94,6 @@ def check_for_updates():
         print(f"Error checking for updates: {e}")
         return False
 
-# Function to pull the latest code from the repository
 def update_codebase():
     try:
         print("Pulling the latest updates from the repository...")
@@ -147,41 +104,27 @@ def update_codebase():
         print(f"Failed to update codebase: {e}")
         sys.exit(1)
 
-# Function to execute the update process
 def update_tool():
     if check_for_updates():
         user_input = input("Would you like to update to the latest version? (yes/no): ").strip().lower()
         if user_input == "yes":
             update_codebase()
-            print("Please restart the tool to apply the update.")
+            print("Rebuilding executable...")
+            try:
+                # Run the build script
+                subprocess.run([sys.executable, 'build.py'], check=True)
+                print("Update and rebuild completed successfully!")
+                print("Please close this window and run the new version from the dist folder.")
+                input("Press Enter to exit...")
+                sys.exit(0)
+            except subprocess.CalledProcessError as e:
+                logging.error(f"Failed to rebuild after update: {e}")
+                print(f"Failed to rebuild after update: {e}")
+                input("Press Enter to continue with current version...")
         else:
             print("Update skipped.")
     else:
         print("No updates found.")
-
-# Step 1: Detect connected devices using adb
-def get_connected_devices():
-    try:
-        # Run adb devices command to get connected devices
-        output = subprocess.check_output(['adb', 'devices'], stderr=subprocess.STDOUT)
-        output = output.decode('utf-8').strip().splitlines()
-        devices = [line.split()[0] for line in output if line and line != "List of devices attached"]
-        return devices
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Error getting devices: {e.output}")
-        print(f"Error getting devices: {e.output}")
-        return []
-
-# Step 2: Read usernames from a file
-def read_usernames_from_file(file_path):
-    try:
-        with open(file_path, 'r') as file:
-            usernames = file.readlines()
-        return [username.strip() for username in usernames]
-    except Exception as e:
-        logging.error(f"Error reading file {file_path}: {e}")
-        print(f"Error reading file {file_path}: {e}")
-        return []
 
 # Step 3: Update or replace the contents of a text file
 def update_txt_file(file_path, content_list):
