@@ -1,17 +1,32 @@
 import os
 import subprocess
-import requests
 import sys
+import logging
+
+# Attempt to install missing packages automatically
+def install_package(package_name):
+    subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
+
+# Try importing the required packages, and install them if they are missing
+try:
+    import requests
+except ImportError:
+    print("requests module not found. Installing...")
+    install_package("requests")
+    import requests  # After installation, import it again
+
+# Setup logging to a file
+logging.basicConfig(filename='error_log.txt', level=logging.ERROR)
 
 # Function to check for updates
 def check_for_updates():
-    # Current version of the tool (could be read from a version file or hardcoded)
-    current_version = "1.0.0"  # You can replace this with actual logic to fetch current version if needed.
-
-    # URL to check for the latest release (GitHub API)
-    repo_url = "https://api.github.com/repos/ZacJMagee/OniPlugin/releases/latest"
-
     try:
+        # Current version of the tool (could be read from a version file or hardcoded)
+        current_version = "1.0.0"  # You can replace this with actual logic to fetch current version if needed.
+
+        # URL to check for the latest release (GitHub API)
+        repo_url = "https://api.github.com/repos/ZacJMagee/OniPlugin/releases/latest"
+
         # Request the latest release information from GitHub
         response = requests.get(repo_url)
         latest_release = response.json()
@@ -27,6 +42,7 @@ def check_for_updates():
             print(f"You are using the latest version: {current_version}")
             return False
     except Exception as e:
+        logging.error(f"Error checking for updates: {e}")
         print(f"Error checking for updates: {e}")
         return False
 
@@ -37,6 +53,7 @@ def update_codebase():
         subprocess.check_call(['git', 'pull'])
         print("Code updated successfully!")
     except subprocess.CalledProcessError as e:
+        logging.error(f"Failed to update codebase: {e}")
         print(f"Failed to update codebase: {e}")
         sys.exit(1)
 
@@ -61,6 +78,7 @@ def get_connected_devices():
         devices = [line.split()[0] for line in output if line and line != "List of devices attached"]
         return devices
     except subprocess.CalledProcessError as e:
+        logging.error(f"Error getting devices: {e.output}")
         print(f"Error getting devices: {e.output}")
         return []
 
@@ -71,6 +89,7 @@ def read_usernames_from_file(file_path):
             usernames = file.readlines()
         return [username.strip() for username in usernames]
     except Exception as e:
+        logging.error(f"Error reading file {file_path}: {e}")
         print(f"Error reading file {file_path}: {e}")
         return []
 
@@ -82,6 +101,7 @@ def update_txt_file(file_path, content_list):
                 file.write(item + '\n')
         print(f"Updated file at {file_path}")
     except Exception as e:
+        logging.error(f"Error updating file {file_path}: {e}")
         print(f"Error updating file {file_path}: {e}")
 
 # Step 4: Let the user select a connected device
