@@ -39,6 +39,6 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='icon.ico'  # Add your icon file here if you have one
+    icon='icon.ico' if os.path.exists('icon.ico') else None
 )
 
