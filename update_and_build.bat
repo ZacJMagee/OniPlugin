@@ -46,10 +46,19 @@ if %errorLevel% neq 0 (
     :: Debug point 3
     echo Debug: About to elevate privileges >> "%SCRIPT_DIR%\logs\build_log.txt"
     
-    :: Re-run the script with admin privileges using cmd instead of PowerShell
-    echo Debug: Command is: runas /user:Administrator "%~f0" >> "%SCRIPT_DIR%\logs\build_log.txt"
-    runas /savecred /user:Administrator "\"%~f0\""
+    :: Re-run the script with admin privileges using PowerShell
+    echo Debug: Attempting elevation via PowerShell >> "%SCRIPT_DIR%\logs\build_log.txt"
+    
+    powershell -Command "Start-Process cmd.exe -ArgumentList '/c cd /d ""%SCRIPT_DIR%"" && ""%~f0""' -Verb RunAs -Wait" >> "%SCRIPT_DIR%\logs\build_log.txt" 2>&1
+    if %ERRORLEVEL% equ 0 (
+        echo Debug: PowerShell elevation succeeded >> "%SCRIPT_DIR%\logs\build_log.txt"
+    ) else (
+        echo Debug: PowerShell elevation failed, trying alternative method >> "%SCRIPT_DIR%\logs\build_log.txt"
+        powershell -Command "Start-Process '%~f0' -WorkingDirectory '%SCRIPT_DIR%' -Verb RunAs -Wait" >> "%SCRIPT_DIR%\logs\build_log.txt" 2>&1
+    )
     exit /b
+Replace lines: 0-0
+```dosbatch
 )
 
 :: Debug point 4 - If we get here, we have admin rights
