@@ -98,6 +98,9 @@ def check_version():
 def build_executable():
     """Build the executable using PyInstaller"""
     try:
+        # Check if running as admin and warn
+        if os.name == 'nt' and ctypes.windll.shell32.IsUserAnAdmin():
+            logging.warning("Running as admin is not recommended for PyInstaller builds")
         # Check version first
         check_version()
 
