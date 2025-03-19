@@ -88,16 +88,35 @@ def check_for_updates():
         print("\nChecking for updates...")
         
         # Get the project root directory
+        original_dir = os.getcwd()
+        print(f"\nCurrent working directory: {original_dir}")
+        
         if getattr(sys, 'frozen', False):
             # If running as compiled executable, go up one directory from dist
-            source_dir = os.path.dirname(os.path.dirname(sys.executable))
+            executable_dir = os.path.dirname(sys.executable)
+            source_dir = os.path.dirname(executable_dir)
+            print(f"Running as frozen executable from: {executable_dir}")
+            print(f"Looking for git repository in: {source_dir}")
         else:
             # If running as script
             source_dir = os.path.dirname(os.path.abspath(__file__))
+            print(f"Running as script from: {source_dir}")
             
         # Change to the project root directory temporarily
-        original_dir = os.getcwd()
+        print(f"Changing to project root directory: {source_dir}")
         os.chdir(source_dir)
+        
+        # Verify git repository location
+        try:
+            git_dir = subprocess.run(
+                ['git', 'rev-parse', '--git-dir'],
+                capture_output=True,
+                text=True,
+                check=True
+            ).stdout.strip()
+            print(f"Found git repository at: {os.path.abspath(git_dir)}")
+        except subprocess.CalledProcessError:
+            print(f"No git repository found in: {source_dir}")
         
         try:
             # Check if we're in a git repository
