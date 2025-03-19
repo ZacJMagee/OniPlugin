@@ -44,7 +44,6 @@ def get_connected_devices():
         logging.error(f"Error getting connected devices: {e}")
         print(f"Error getting connected devices: {e}")
         return []
-        return []
 
 # Get the application data directory
 def get_app_data_dir():
@@ -299,6 +298,9 @@ def write_usernames_to_likesource(device_folder, models, usernames):
         logging.error(f"Error in write_usernames_to_likesource: {str(e)}")
         print(f"Error updating usernames: {str(e)}")
         return False
+
+def main():
+    try:
         # Setup environment and logging
         logs_dir = setup_environment()
         logging.info("Application started")
@@ -321,17 +323,20 @@ def write_usernames_to_likesource(device_folder, models, usernames):
             print("No models selected. Exiting...")
             return
 
-        # Step 4: Get usernames file from user
-        usernames_file = input("Please enter the path to your usernames file: ").strip()
+        # Step 4: Read usernames from the random_usernames file in project directory
+        usernames_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'random_usernames')
         if not os.path.exists(usernames_file):
-            print(f"Error: File not found: {usernames_file}")
+            logging.error("random_usernames file not found in project directory")
+            print("Error: random_usernames file not found in project directory")
             return
 
-        # Step 5: Read and process usernames
+        print(f"Reading usernames from: {usernames_file}")
         usernames = read_usernames_from_file(usernames_file)
         if not usernames:
-            print("No usernames found in file. Exiting...")
+            print("No usernames found in random_usernames file. Exiting...")
             return
+        
+        print(f"Found {len(usernames)} usernames to process")
 
         # Step 6: Write usernames to selected models
         write_usernames_to_likesource(selected_device, selected_models, usernames)
@@ -340,9 +345,5 @@ def write_usernames_to_likesource(device_folder, models, usernames):
         logging.error(f"An error occurred: {str(e)}")
         print(f"An error occurred: {str(e)}")
 
-    # Step 5: Write selected usernames to the like-source-followers.txt file for each model
-    write_usernames_to_likesource(selected_device, selected_models, usernames)
-
 if __name__ == "__main__":
     main()
-
