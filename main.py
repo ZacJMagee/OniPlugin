@@ -437,16 +437,22 @@ def select_file_type():
     print("1. like-source-followers.txt (default)")
     print("2. follow-specific-sources.txt")
     print("3. follow-source-followers.txt")
+    print("4. follow users likers")
+    print("5. like posts of specific accs")
     
     while True:
-        response = input("\nEnter your choice (Press Enter for option 1, or type '2' or '3'): ").strip()
+        response = input("\nEnter your choice (Press Enter for option 1, or type '2', '3', '4', or '5'): ").strip()
         
         if response == '':
             return 'like-source-followers.txt'
         elif response == '2':
             return 'follow-specific-sources.txt'
         elif response == '3':
-            return 'followings.txt'  # Actually writes to followings.txt when user selects follow-source-followers
+            return 'sources.txt'  # Actually writes to followings.txt when user selects follow-source-followers
+        elif response == '4':
+            return 'follow-likers-sources.txt'  # New option for following users' likers
+        elif response == '5':
+            return 'like_posts_specific.txt'  # New option for liking posts of specific accounts
         else:
             print("Invalid selection. Please try again.")
             continue
