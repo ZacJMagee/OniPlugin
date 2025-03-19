@@ -208,7 +208,7 @@ def select_model_accounts(device_folder):
     base_path = os.path.join(r"C:\Users\Fredrick\Desktop\full_igbot_13.1.3", device_folder)
     if not os.path.exists(base_path):
         print(f"Error: Device folder not found: {base_path}")
-        return None
+        return []  # Return empty list instead of None
 
     # Filter out system folders and hidden folders (starting with .)
     models = [
@@ -225,6 +225,8 @@ def select_model_accounts(device_folder):
     # Step 6: Ask if the user wants to update all models
     select_all = input("Do you want to update all models? (yes/no): ").strip().lower()
     if select_all == 'yes':
+        print(f"\nSelected all models: {', '.join(models)}")
+        logging.info(f"Selected all {len(models)} models")
         return models
 
     # Step 7: If not all, manually select the models to update
@@ -239,12 +241,15 @@ def select_model_accounts(device_folder):
                 if model_index == -1:  # User entered 0
                     if selected_models:  # If we have selections
                         print(f"\nFinal selected models: {', '.join(selected_models)}")
+                        logging.info(f"Manually selected {len(selected_models)} models: {', '.join(selected_models)}")
                         return selected_models  # Return the selected models
                     else:  # If no selections yet, confirm exit
                         confirm = input("No models selected. Are you sure you want to exit? (yes/no): ").lower()
                         if confirm == 'yes':
+                            logging.warning("User confirmed exit without selecting any models")
                             return []
                         continue
+
                 
                 if 0 <= model_index < len(models):
                     model = models[model_index]
@@ -332,7 +337,8 @@ def main():
             logging.error("No models selected by user")
             print("No models selected. Exiting...")
             input("Press Enter to exit...")
-            return
+        # Step 4: Read usernames from the random_usernames file
+        usernames_file = os.path.join(r"C:\Users\Fredrick\Desktop\OniPlugin", 'random_usernames')
 
         # Step 4: Read usernames from the random_usernames file in project directory
         usernames_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'random_usernames')
