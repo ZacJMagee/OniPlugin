@@ -233,31 +233,33 @@ def select_model_accounts(device_folder):
     for i, model in enumerate(models, start=1):
         print(f"{i}. {model}")
     print("\nEnter model numbers one at a time. Enter 0 when done.")
-
     while True:
-        try:
-            model_index = int(input("\nSelect model number (0 to finish): ")) - 1
-            if model_index == -1:  # User entered 0
-                if selected_models:  # If we have selections, break the loop
-                    break
-                else:  # If no selections yet, confirm exit
-                    confirm = input("No models selected. Are you sure you want to exit? (yes/no): ").lower()
-                    if confirm == 'yes':
-                        return []
-                    continue
-            
-            if 0 <= model_index < len(models):
-                model = models[model_index]
-                if model in selected_models:
-                    print(f"Model '{model}' is already selected.")
+            try:
+                model_index = int(input("\nSelect model number (0 to finish): ")) - 1
+                if model_index == -1:  # User entered 0
+                    if selected_models:  # If we have selections
+                        print(f"\nFinal selected models: {', '.join(selected_models)}")
+                        return selected_models  # Return the selected models
+                    else:  # If no selections yet, confirm exit
+                        confirm = input("No models selected. Are you sure you want to exit? (yes/no): ").lower()
+                        if confirm == 'yes':
+                            return []
+                        continue
+                
+                if 0 <= model_index < len(models):
+                    model = models[model_index]
+                    if model in selected_models:
+                        print(f"Model '{model}' is already selected.")
+                    else:
+                        selected_models.append(model)
+                        print(f"Added '{model}'. Currently selected models: {', '.join(selected_models)}")
                 else:
-                    selected_models.append(model)
-                    print(f"Added '{model}'. Currently selected models: {', '.join(selected_models)}")
-            else:
-                print(f"Invalid selection. Please enter a number between 1 and {len(models)}")
-        except ValueError:
-            print("Please enter a valid number.")
-            continue
+                    print(f"Invalid selection. Please enter a number between 1 and {len(models)}")
+            except ValueError:
+                print("Please enter a valid number.")
+                continue
+
+
 
 def write_usernames_to_likesource(device_folder, models, usernames):
     try:
