@@ -436,33 +436,54 @@ def select_file_type():
     print("\nWhich file would you like to update?")
     print("1. like-source-followers.txt (default)")
     print("2. follow-specific-sources.txt")
+    print("3. follow-source-followers.txt")
     
-    response = input("\nEnter your choice (Press Enter for option 1, or type '2'): ").strip()
-    
-    if response == '2':
-        return 'follow-specific-sources.txt'
-    return 'like-source-followers.txt'
+    while True:
+        response = input("\nEnter your choice (Press Enter for option 1, or type '2' or '3'): ").strip()
+        
+        if response == '':
+            return 'like-source-followers.txt'
+        elif response == '2':
+            return 'follow-specific-sources.txt'
+        elif response == '3':
+            return 'followings.txt'  # Actually writes to followings.txt when user selects follow-source-followers
+        else:
+            print("Invalid selection. Please try again.")
+            continue
 
 def write_usernames_to_file(device_folder, models, usernames, target_file):
     try:
-        logging.info(f"Starting to write usernames for {len(models)} models in device {device_folder}")
+        # Display what we're about to do
+        print(f"\nPreparing to update {target_file} for {len(models)} models in device {device_folder}")
+        print(f"Will add {len(usernames)} usernames to each model's file")
+        
+        # Ask for confirmation
+        response = input("\nDo you want to proceed? (Press Enter for yes, or type 'no'): ").strip().lower()
+        if response == 'no':
+            print("Operation cancelled by user")
+            logging.info("File update operation cancelled by user")
+            return False
+        
+        logging.info(f"Starting to write usernames for {len(models)} models in device {device_folder} to {target_file}")
         base_path = os.path.join(r"C:\Users\Fredrick\Desktop\full_igbot_13.1.3", device_folder)
         if not os.path.exists(base_path):
             error_msg = f"Device folder not found: {base_path}"
             logging.error(error_msg)
-            print(f"Error: {error_msg}")
+            print(f"\nError: {error_msg}")
             return False
 
         success_count = 0
+        print("\nUpdating files...")
         for model in models:
             try:
                 model_folder = os.path.join(base_path, model)
                 if not os.path.exists(model_folder):
                     logging.error(f"Model folder not found: {model_folder}")
-                    print(f"Error: Model folder not found for {model}")
+                    print(f"⨯ Error: Model folder not found for {model}")
                     continue
 
                 file_path = os.path.join(model_folder, target_file)
+                display_path = os.path.relpath(file_path, base_path)  # Show relative path for cleaner output
                 
                 # Create the file if it doesn't exist
                 if not os.path.exists(file_path):
@@ -470,19 +491,34 @@ def write_usernames_to_file(device_folder, models, usernames, target_file):
                     open(file_path, 'w').close()
 
                 update_txt_file(file_path, usernames)
-                print(f"✓ Successfully updated {file_path}")
+                print(f"✓ Successfully updated {display_path}")
                 success_count += 1
                 
             except Exception as e:
                 logging.error(f"Error processing model {model}: {str(e)}")
-                print(f"Error processing model {model}: {str(e)}")
+                print(f"⨯ Error processing {model}: {str(e)}")
 
-        print(f"\nCompleted: Successfully updated {success_count} out of {len(models)} models")
+        # Show summary with clear success/failure indicators
+        print("\nOperation Summary:")
+        print(f"✓ Successfully updated: {success_count} models")
+        if success_count < len(models):
+            print(f"⨯ Failed to update: {len(models) - success_count} models")
+        
+        if success_count == len(models):
+            print("\nAll files were updated successfully!")
+        elif success_count > 0:
+            print("\nSome files were updated, but there were errors.")
+            print("Check the log file for details.")
+        else:
+            print("\nNo files were updated successfully.")
+            print("Check the log file for details.")
+
         return success_count > 0
 
     except Exception as e:
         logging.error(f"Error in write_usernames_to_file: {str(e)}")
-        print(f"Error updating usernames: {str(e)}")
+        print(f"\nError updating usernames: {str(e)}")
+        print("Check the log file for details.")
         return False
 
 def main():
