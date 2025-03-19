@@ -6,6 +6,7 @@ import site
 import json
 from pathlib import Path
 import ctypes
+import re
 from packaging import version
 
 # Function to read usernames from a file
@@ -23,11 +24,26 @@ def read_usernames_from_file(file_path):
 def get_connected_devices():
     base_path = r"C:\Users\Fredrick\Desktop\full_igbot_13.1.3"
     try:
-        return [folder for folder in os.listdir(base_path) 
-                if os.path.isdir(os.path.join(base_path, folder))]
+        # Pattern for Android device IDs: Only capital letters and numbers
+        device_pattern = re.compile(r'^[A-Z0-9]+$')
+        
+        # Filter folders that match the device ID pattern and are at least 10 characters long
+        devices = [
+            folder for folder in os.listdir(base_path)
+            if os.path.isdir(os.path.join(base_path, folder))
+            and device_pattern.match(folder)
+            and len(folder) >= 10  # Most Android device IDs are at least 10 characters
+        ]
+        
+        if not devices:
+            print("No valid Android devices found.")
+            logging.warning("No valid Android devices found in the directory.")
+        
+        return devices
     except Exception as e:
         logging.error(f"Error getting connected devices: {e}")
         print(f"Error getting connected devices: {e}")
+        return []
         return []
 
 # Get the application data directory
