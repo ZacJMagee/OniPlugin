@@ -222,9 +222,9 @@ def select_model_accounts(device_folder):
         print("Error: No valid models found in the selected device folder.")
         return None
 
-    # Step 6: Ask if the user wants to update all models
-    select_all = input("Do you want to update all models? (yes/no): ").strip().lower()
-    if select_all == 'yes':
+    # Step 6: Ask if the user wants to update all models (default is yes)
+    select_all = input("Do you want to update all models? (Press Enter for yes, or type 'no'): ").strip().lower()
+    if select_all == '' or select_all == 'yes':
         print(f"\nSelected all models: {', '.join(models)}")
         logging.info(f"Selected all {len(models)} models")
         return models
@@ -244,8 +244,8 @@ def select_model_accounts(device_folder):
                         logging.info(f"Manually selected {len(selected_models)} models: {', '.join(selected_models)}")
                         return selected_models  # Return the selected models
                     else:  # If no selections yet, confirm exit
-                        confirm = input("No models selected. Are you sure you want to exit? (yes/no): ").lower()
-                        if confirm == 'yes':
+                        confirm = input("No models selected. Are you sure you want to exit? (Press Enter for yes, or type 'no'): ").lower()
+                        if confirm == '' or confirm == 'yes':
                             logging.warning("User confirmed exit without selecting any models")
                             return []
                         continue
