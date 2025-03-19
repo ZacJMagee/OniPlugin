@@ -236,19 +236,36 @@ def select_model_accounts(device_folder):
 
     # Step 7: If not all, manually select the models to update
     selected_models = []
-    print("Available models:")
+    print("\nAvailable models:")
     for i, model in enumerate(models, start=1):
         print(f"{i}. {model}")
+    print("\nEnter model numbers one at a time. Enter 0 when done.")
 
     while True:
-        model_index = int(input("Enter the number of the model you want to select (0 to finish): ")) - 1
-        if model_index == -1:
-            break
-        if 0 <= model_index < len(models):
-            selected_models.append(models[model_index])
-        else:
-            print("Invalid model selected.")
+        try:
+            model_index = int(input("\nSelect model number (0 to finish): ")) - 1
+            if model_index == -1:  # User entered 0
+                if selected_models:  # If we have selections, break the loop
+                    break
+                else:  # If no selections yet, confirm exit
+                    confirm = input("No models selected. Are you sure you want to exit? (yes/no): ").lower()
+                    if confirm == 'yes':
+                        return []
+                    continue
+            
+            if 0 <= model_index < len(models):
+                model = models[model_index]
+                if model in selected_models:
+                    print(f"Model '{model}' is already selected.")
+                else:
+                    selected_models.append(model)
+                    print(f"Added '{model}'. Currently selected models: {', '.join(selected_models)}")
+            else:
+                print(f"Invalid selection. Please enter a number between 1 and {len(models)}")
+        except ValueError:
+            print("Please enter a valid number.")
     
+    print(f"\nFinal selection: {', '.join(selected_models)}")
     return selected_models
 
 # Step 8: Write the selected usernames to the like-source-followers.txt file for each selected model
