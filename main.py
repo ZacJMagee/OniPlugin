@@ -85,97 +85,87 @@ def setup_environment():
 def check_for_updates():
     try:
         from version import VERSION as current_version
+        print("\nChecking for updates...")
         
-        # Get the latest commit hash
-        result = subprocess.run(['git', 'ls-remote', 'origin', 'HEAD'], 
-                              capture_output=True, text=True)
-        remote_hash = result.stdout.split()[0]
+        # Fetch the latest changes
+        subprocess.run(['git', 'fetch', 'origin'], check=True, capture_output=True)
         
-        # Get the current commit hash
-        result = subprocess.run(['git', 'rev-parse', 'HEAD'], 
-                              capture_output=True, text=True)
-        local_hash = result.stdout.strip()
+        # Get number of commits behind origin
+        result = subprocess.run(
+            ['git', 'rev-list', 'HEAD..origin/main', '--count'],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        commits_behind = int(result.stdout.strip())
         
-        if remote_hash != local_hash:
-            print(f"Update available! Current version: {current_version}")
-            print("New changes are available in the repository.")
-            return True
+        if commits_behind > 0:
+            print(f"\nUpdate available! Current version: {current_version}")
+            print(f"Your version is {commits_behind} commits behind the latest version.")
+            
+            # Ask user if they want to update (default is yes)
+            user_input = input("\nWould you like to update to the latest version? (Press Enter for yes, or type 'no'): ").strip().lower()
+            if user_input == '' or user_input == 'yes':
+                return True
         else:
-            print(f"You are using the latest version: {current_version}")
-            return False
+            print(f"\nYou are using the latest version: {current_version}")
+        
+        return False
     except Exception as e:
         logging.error(f"Error checking for updates: {e}")
+        print(f"Error checking for updates: {e}")
+        return False
+
 def update_codebase():
     try:
-        print("Pulling the latest updates from the repository...")
-        # Fetch all changes first
-        subprocess.check_call(['git', 'fetch', '--all'])
-        # Reset to match remote main/master branch
-        subprocess.check_call(['git', 'reset', '--hard', 'origin/main'])
-        print("Code updated successfully!")
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Failed to update codebase: {e}")
-        print(f"Failed to update codebase: {e}")
-        sys.exit(1)
-
-    user_input = input("Would you like to update to the latest version? (yes/no): ").strip().lower()
-    if user_input != "yes":
-        print("Update skipped.")
-        return
-
-    try:
-        # First, stash any local changes
-        subprocess.run(['git', 'stash'], check=True)
+        print("\nStarting update process...")
         
-        # Update the codebase
-        update_codebase()
-        
-        # Get the directory of the current executable
+        # Get the directory of the current script/executable
         if getattr(sys, 'frozen', False):
             app_path = os.path.dirname(sys.executable)
         else:
             app_path = os.path.dirname(os.path.abspath(__file__))
         
-        print("Rebuilding executable...")
+        # Stash any local changes
+        subprocess.run(['git', 'stash'], check=True, capture_output=True)
         
-        build_success = False
-        try:
-            # Run the appropriate build script based on the platform
-            if os.name == 'nt':  # Windows
-                build_script = os.path.join(app_path, 'update_and_build.bat')
-                if os.path.exists(build_script):
-                    subprocess.run([build_script], check=True, shell=True)
-                    build_success = True
-                else:
-                    print("update_and_build.bat not found, using build.py")
-            
-            # If Windows build script failed or we're on another platform
-            if not build_success:
-                subprocess.run([sys.executable, 'build.py'], check=True)
-                build_success = True
-            
-            # If build was successful, exit
-            if build_success:
-                print("\nUpdate and rebuild completed successfully!")
-                print("The new version has been built in the dist folder.")
-                print("This window will close. Please run the new version from the dist folder.")
+        # Pull the latest changes
+        print("Pulling latest updates...")
+        subprocess.run(['git', 'pull', 'origin', 'main'], check=True)
+        
+        # Run the update and build script
+        print("\nRunning update and build script...")
+        if os.name == 'nt':  # Windows
+            build_script = os.path.join(app_path, 'update_and_build.bat')
+            if os.path.exists(build_script):
+                subprocess.run([build_script], check=True, shell=True)
+                print("\nUpdate and build completed successfully!")
+                print("The application will now close. Please run the new version.")
                 input("Press Enter to exit...")
                 os._exit(0)
+            else:
+                print("Error: update_and_build.bat not found!")
+                return False
+        else:
+            # For non-Windows systems
+            subprocess.run([sys.executable, 'build.py'], check=True)
+            print("\nUpdate and build completed successfully!")
+            print("The application will now close. Please run the new version.")
+            input("Press Enter to exit...")
+            os._exit(0)
             
-        except subprocess.CalledProcessError as e:
-            print(f"Failed to run build script: {e}")
-            raise  # Re-raise to be caught by outer try block
-            
+        return True
+        
     except subprocess.CalledProcessError as e:
         logging.error(f"Failed during update process: {e}")
         print(f"\nError during update: {e}")
         print("Please try updating manually by running update_and_build.bat")
-        input("Press Enter to continue with current version...")
+        return False
     except Exception as e:
         logging.error(f"Unexpected error during update: {e}")
         print(f"\nUnexpected error: {e}")
         print("Please try updating manually by running update_and_build.bat")
-        input("Press Enter to continue with current version...")
+        return False
 
 # Step 3: Update or replace the contents of a text file
 def update_txt_file(file_path, content_list):
@@ -314,6 +304,13 @@ def main():
         logs_dir = setup_environment()
         logging.info("Application started")
         print(f"Log file location: {os.path.join(logs_dir, 'app.log')}")
+
+        # Check for updates first
+        if check_for_updates():
+            if update_codebase():
+                return  # Exit after successful update
+            else:
+                print("\nContinuing with current version...")
 
         # Step 1: Get connected devices
         devices = get_connected_devices()
