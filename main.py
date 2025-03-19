@@ -89,21 +89,16 @@ def check_for_updates():
         
         # Get the project root directory
         original_dir = os.getcwd()
-        print(f"\nCurrent working directory: {original_dir}")
         
         if getattr(sys, 'frozen', False):
             # If running as compiled executable, go up one directory from dist
             executable_dir = os.path.dirname(sys.executable)
             source_dir = os.path.dirname(executable_dir)
-            print(f"Running as frozen executable from: {executable_dir}")
-            print(f"Looking for git repository in: {source_dir}")
         else:
             # If running as script
             source_dir = os.path.dirname(os.path.abspath(__file__))
-            print(f"Running as script from: {source_dir}")
             
         # Change to the project root directory temporarily
-        print(f"Changing to project root directory: {source_dir}")
         try:
             os.chdir(source_dir)
             # Verify we're in the correct directory with git repo
@@ -587,10 +582,6 @@ def main():
             os.path.join(base_dir, 'data'),  # data subdirectory
         ]
 
-        print("Searching for username files in the following locations:")
-        for directory in search_dirs:
-            print(f"- {directory}")
-        
         # Try both possible filenames in all possible directories
         usernames_file = None
         for directory in search_dirs:
@@ -598,7 +589,6 @@ def main():
                 temp_path = os.path.join(directory, filename)
                 if os.path.exists(temp_path):
                     usernames_file = temp_path
-                    print(f"\nFound username file at: {temp_path}")
                     break
             if usernames_file:
                 break
