@@ -339,11 +339,23 @@ def main():
             input("Press Enter to exit...")
 
         # Step 4: Read usernames from the random_usernames file in project directory
-        usernames_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'random_usernames')
-        if not os.path.exists(usernames_file):
-            error_msg = "random_usernames file not found in project directory"
-            logging.error(error_msg)
-            print(f"Error: {error_msg}")
+        project_dir = os.path.dirname(os.path.abspath(__file__))
+        possible_filenames = ['random_usernames', 'random_usernames.txt']
+        
+        # Try both possible filenames
+        usernames_file = None
+        for filename in possible_filenames:
+            temp_path = os.path.join(project_dir, filename)
+            if os.path.exists(temp_path):
+                usernames_file = temp_path
+                break
+        
+        if not usernames_file:
+            print("\nError: Username file not found!")
+            print("Looked for files in:", project_dir)
+            print("Expected filenames:", possible_filenames)
+            print("\nPlease ensure one of these files exists in the project directory.")
+            logging.error(f"Username file not found. Searched for: {possible_filenames}")
             input("Press Enter to exit...")
             return
 
