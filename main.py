@@ -529,109 +529,148 @@ def main():
         logging.info("Application started")
         print(f"Log file location: {os.path.join(logs_dir, 'app.log')}")
 
-        # Check for updates first
-        if check_for_updates():
-            if update_codebase():
-                return  # Exit after successful update
-            else:
-                print("\nContinuing with current version...")
+        while True:  # Main program loop
+            # Check for updates first (only on first run)
+            if check_for_updates():
+                if update_codebase():
+                    return  # Exit after successful update
+                else:
+                    print("\nContinuing with current version...")
 
-        # Step 1: Get connected devices
-        devices = get_connected_devices()
-        if not devices:
-            logging.error("No devices found")
-            print("No devices found. Exiting...")
-            input("Press Enter to exit...")
-            return
-
-        # Step 2: Let user select a device
-        selected_device = select_device(devices)
-        if not selected_device:
-            logging.error("No device selected by user")
-            print("No device selected. Exiting...")
-            input("Press Enter to exit...")
-            return
-
-        # Step 3: Select which file to update
-        target_file = select_file_type()
-        logging.info(f"Selected file type: {target_file}")
-
-
-        # Step 4: Let user select models
-        selected_models = select_model_accounts(selected_device)
-        if not selected_models:
-            logging.error("No models selected by user")
-            print("No models selected. Exiting...")
-            input("Press Enter to exit...")
-
-        # Step 5: Read usernames from the random_usernames file in project directory
-        # Get the application directory whether running as script or frozen executable
-        if getattr(sys, 'frozen', False):
-            # If the application is run as a bundle (frozen)
-            base_dir = os.path.dirname(sys.executable)
-        else:
-            # If the application is run from a Python interpreter
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-
-        possible_filenames = ['random_usernames', 'random_usernames.txt']
-        
-        # Define possible directory locations to search
-        search_dirs = [
-            base_dir,  # Current directory
-            os.path.dirname(base_dir),  # One directory up
-            os.path.join(base_dir, 'data'),  # data subdirectory
-        ]
-
-        # Try both possible filenames in all possible directories
-        usernames_file = None
-        for directory in search_dirs:
-            for filename in possible_filenames:
-                temp_path = os.path.join(directory, filename)
-                if os.path.exists(temp_path):
-                    usernames_file = temp_path
+            # Step 1: Get connected devices
+            devices = get_connected_devices()
+            if not devices:
+                logging.error("No devices found")
+                print("No devices found.")
+                retry = input("\nWould you like to try again? (Press Enter for yes, or type 'no' to exit): ").strip().lower()
+                if retry == 'no':
+                    print("\nThank you for using the application!")
                     break
-            if usernames_file:
+                else:
+                    continue
+
+            # Step 2: Let user select a device
+            selected_device = select_device(devices)
+            if not selected_device:
+                logging.error("No device selected by user")
+                print("No device selected.")
+                retry = input("\nWould you like to try again? (Press Enter for yes, or type 'no' to exit): ").strip().lower()
+                if retry == 'no':
+                    print("\nThank you for using the application!")
+                    break
+                else:
+                    continue
+
+            # Step 3: Select which file to update
+            target_file = select_file_type()
+            logging.info(f"Selected file type: {target_file}")
+
+            # Step 4: Let user select models
+            selected_models = select_model_accounts(selected_device)
+            if not selected_models:
+                logging.error("No models selected by user")
+                print("No models selected.")
+                retry = input("\nWould you like to try again? (Press Enter for yes, or type 'no' to exit): ").strip().lower()
+                if retry == 'no':
+                    print("\nThank you for using the application!")
+                    break
+                else:
+                    continue
+
+            # Step 5: Read usernames from the random_usernames file in project directory
+            # Get the application directory whether running as script or frozen executable
+            if getattr(sys, 'frozen', False):
+                # If the application is run as a bundle (frozen)
+                base_dir = os.path.dirname(sys.executable)
+            else:
+                # If the application is run from a Python interpreter
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+
+            possible_filenames = ['random_usernames', 'random_usernames.txt']
+            
+            # Define possible directory locations to search
+            search_dirs = [
+                base_dir,  # Current directory
+                os.path.dirname(base_dir),  # One directory up
+                os.path.join(base_dir, 'data'),  # data subdirectory
+            ]
+
+            # Try both possible filenames in all possible directories
+            usernames_file = None
+            for directory in search_dirs:
+                for filename in possible_filenames:
+                    temp_path = os.path.join(directory, filename)
+                    if os.path.exists(temp_path):
+                        usernames_file = temp_path
+                        break
+                if usernames_file:
+                    break
+
+            if not usernames_file:
+                print("\nError: Username file not found!")
+                print("Expected filenames:", possible_filenames)
+                print("\nPlease ensure one of these files exists in the project directory.")
+                logging.error(f"Username file not found. Searched for: {possible_filenames}")
+                retry = input("\nWould you like to try again? (Press Enter for yes, or type 'no' to exit): ").strip().lower()
+                if retry == 'no':
+                    print("\nThank you for using the application!")
+                    break
+                else:
+                    continue
+
+            print(f"Reading usernames from: {usernames_file}")
+            usernames = read_usernames_from_file(usernames_file)
+            if not usernames:
+                logging.error("No usernames found in random_usernames file")
+                print("No usernames found in random_usernames file.")
+                retry = input("\nWould you like to try again? (Press Enter for yes, or type 'no' to exit): ").strip().lower()
+                if retry == 'no':
+                    print("\nThank you for using the application!")
+                    break
+                else:
+                    continue
+            
+            print(f"Found {len(usernames)} usernames to process")
+            logging.info(f"Processing {len(usernames)} usernames for {len(selected_models)} models")
+
+            # Step 6: Write usernames to selected models
+            success = write_usernames_to_file(selected_device, selected_models, usernames, target_file)
+            
+            if success:
+                logging.info("Successfully completed all operations")
+                print("\nAll operations completed successfully!")
+            else:
+                logging.error("Failed to complete all operations")
+                print("\nSome operations failed. Check the log file for details.")
+            
+            # Ask if user wants to perform another operation
+            continue_response = input("\nWould you like to perform another operation? (Press Enter for yes, or type 'no' to exit): ").strip().lower()
+            if continue_response == 'no':
+                print("\nThank you for using the application!")
                 break
-
-        
-        if not usernames_file:
-            print("\nError: Username file not found!")
-            print("Looked for files in:", project_dir)
-            print("Expected filenames:", possible_filenames)
-            print("\nPlease ensure one of these files exists in the project directory.")
-            logging.error(f"Username file not found. Searched for: {possible_filenames}")
-            input("Press Enter to exit...")
-            return
-
-        print(f"Reading usernames from: {usernames_file}")
-        usernames = read_usernames_from_file(usernames_file)
-        if not usernames:
-            logging.error("No usernames found in random_usernames file")
-            print("No usernames found in random_usernames file. Exiting...")
-            input("Press Enter to exit...")
-            return
-        
-        print(f"Found {len(usernames)} usernames to process")
-        logging.info(f"Processing {len(usernames)} usernames for {len(selected_models)} models")
-
-        
-        # Step 6: Write usernames to selected models
-        success = write_usernames_to_file(selected_device, selected_models, usernames, target_file)
-        
-        if success:
-            logging.info("Successfully completed all operations")
-            print("\nAll operations completed successfully!")
-        else:
-            logging.error("Failed to complete all operations")
-            print("\nSome operations failed. Check the log file for details.")
-        
-        input("\nPress Enter to exit...")
+            else:
+                print("\n" + "="*50)
+                print("Starting new operation...")
+                print("="*50 + "\n")
+                continue
 
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}", exc_info=True)
         print(f"\nAn error occurred: {str(e)}")
         print(f"Check the log file for details: {os.path.join(logs_dir, 'app.log')}")
-        input("\nPress Enter to exit...")
+        
+        # Even after an error, ask if user wants to try again
+        retry = input("\nWould you like to try again? (Press Enter for yes, or type 'no' to exit): ").strip().lower()
+        if retry == 'no':
+            print("\nThank you for using the application!")
+        else:
+            print("\n" + "="*50)
+            print("Starting new operation...")
+            print("="*50 + "\n")
+            main()  # Restart the main function
+
+if __name__ == "__main__":
+    main()
 
 if __name__ == "__main__":
     main()
