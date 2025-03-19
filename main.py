@@ -432,7 +432,18 @@ def select_model_accounts(device_folder):
 
 
 
-def write_usernames_to_likesource(device_folder, models, usernames):
+def select_file_type():
+    print("\nWhich file would you like to update?")
+    print("1. like-source-followers.txt (default)")
+    print("2. follow-specific-sources.txt")
+    
+    response = input("\nEnter your choice (Press Enter for option 1, or type '2'): ").strip()
+    
+    if response == '2':
+        return 'follow-specific-sources.txt'
+    return 'like-source-followers.txt'
+
+def write_usernames_to_file(device_folder, models, usernames, target_file):
     try:
         logging.info(f"Starting to write usernames for {len(models)} models in device {device_folder}")
         base_path = os.path.join(r"C:\Users\Fredrick\Desktop\full_igbot_13.1.3", device_folder)
@@ -451,7 +462,7 @@ def write_usernames_to_likesource(device_folder, models, usernames):
                     print(f"Error: Model folder not found for {model}")
                     continue
 
-                file_path = os.path.join(model_folder, 'like-source-followers.txt')
+                file_path = os.path.join(model_folder, target_file)
                 
                 # Create the file if it doesn't exist
                 if not os.path.exists(file_path):
@@ -470,7 +481,7 @@ def write_usernames_to_likesource(device_folder, models, usernames):
         return success_count > 0
 
     except Exception as e:
-        logging.error(f"Error in write_usernames_to_likesource: {str(e)}")
+        logging.error(f"Error in write_usernames_to_file: {str(e)}")
         print(f"Error updating usernames: {str(e)}")
         return False
 
@@ -566,8 +577,12 @@ def main():
         print(f"Found {len(usernames)} usernames to process")
         logging.info(f"Processing {len(usernames)} usernames for {len(selected_models)} models")
 
-        # Step 6: Write usernames to selected models
-        success = write_usernames_to_likesource(selected_device, selected_models, usernames)
+        # Step 6: Select which file to update
+        target_file = select_file_type()
+        logging.info(f"Selected file type: {target_file}")
+        
+        # Step 7: Write usernames to selected models
+        success = write_usernames_to_file(selected_device, selected_models, usernames, target_file)
         
         if success:
             logging.info("Successfully completed all operations")
