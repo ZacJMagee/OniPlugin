@@ -337,8 +337,6 @@ def main():
             logging.error("No models selected by user")
             print("No models selected. Exiting...")
             input("Press Enter to exit...")
-        # Step 4: Read usernames from the random_usernames file
-        usernames_file = os.path.join(r"C:\Users\Fredrick\Desktop\OniPlugin", 'random_usernames')
 
         # Step 4: Read usernames from the random_usernames file in project directory
         usernames_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'random_usernames')
