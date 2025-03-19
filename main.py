@@ -341,10 +341,32 @@ def update_codebase():
 # Step 3: Update or replace the contents of a text file
 def update_txt_file(file_path, content_list):
     try:
+        # First read existing content if file exists and has content
+        existing_content = set()
+        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+            with open(file_path, 'r') as file:
+                existing_content = {line.strip() for line in file if line.strip()}
+        
+        # Add new content to set to remove duplicates
+        new_content = set(content_list)
+        
+        # Combine existing and new content
+        combined_content = existing_content.union(new_content)
+        
+        # Write back all content
         with open(file_path, 'w') as file:
-            for item in content_list:
+            for item in sorted(combined_content):  # Sort for consistent output
                 file.write(item + '\n')
+                
+        # Log the operation details
+        new_entries = len(combined_content) - len(existing_content)
         print(f"Updated file at {file_path}")
+        print(f"- Previous entries: {len(existing_content)}")
+        print(f"- New entries added: {new_entries}")
+        print(f"- Total entries now: {len(combined_content)}")
+        
+        logging.info(f"File update: {file_path} - Previous: {len(existing_content)}, Added: {new_entries}, Total: {len(combined_content)}")
+        
     except Exception as e:
         logging.error(f"Error updating file {file_path}: {e}")
         print(f"Error updating file {file_path}: {e}")
@@ -672,5 +694,3 @@ def main():
 if __name__ == "__main__":
     main()
 
-if __name__ == "__main__":
-    main()
