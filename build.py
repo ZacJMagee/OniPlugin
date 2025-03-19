@@ -21,18 +21,24 @@ def install_requirements():
         'pyinstaller>=5.13.0',
         'requests>=2.31.0',
         'packaging>=23.2',
-        'pathlib>=1.0.1',
-        'ctypes-windows-sdk>=0.0.3;platform_system=="Windows"'
+
+        'ctypes-windows-sdk>=0.0.3;platform_system=="Windows"',
+        'setuptools',
+        'wheel',
+        'pip>=21.0'
     ]
     
     print("Installing build requirements...")
-    for req in requirements:
-        try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", req])
-            logging.info(f"Installed {req}")
-        except subprocess.CalledProcessError as e:
-            logging.error(f"Failed to install {req}: {e}")
-            sys.exit(1)
+    try:
+        # Upgrade pip first
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
+        
+        # Install all requirements at once
+        subprocess.check_call([sys.executable, "-m", "pip", "install"] + requirements)
+        logging.info("Successfully installed all requirements")
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Failed to install requirements: {e}")
+        sys.exit(1)
 
 def clean_build_dirs():
     """Clean up build and dist directories"""
@@ -137,14 +143,36 @@ def build_executable():
             if os.path.exists('icon.ico'):
                 build_command.extend(['--icon=icon.ico'])
         
-        # Run the build
-        subprocess.run(build_command, check=True)
+        # Run the build with detailed output
+        process = subprocess.Popen(
+            build_command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True
+        )
         
+        # Stream output in real-time
+        while True:
+            output = process.stdout.readline()
+            if output:
+                print(output.strip())
+                logging.info(output.strip())
+            error = process.stderr.readline()
+            if error:
+                print(error.strip(), file=sys.stderr)
+                logging.error(error.strip())
+            if output == '' and error == '' and process.poll() is not None:
+                break
+                
+        if process.returncode != 0:
+            raise subprocess.CalledProcessError(process.returncode, build_command)
+            
         logging.info("Build completed successfully!")
         logging.info(f"Executable can be found in: {os.path.abspath('dist')}")
         
     except subprocess.CalledProcessError as e:
-        logging.error(f"Build failed: {e}")
+        logging.error(f"Build failed with exit code {e.returncode}")
+        logging.error("Check the build log for detailed error messages")
         sys.exit(1)
     except Exception as e:
         logging.error(f"An error occurred: {e}")

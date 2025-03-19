@@ -1,9 +1,19 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 import os
+import sys
 from pathlib import Path
 
+# Ensure we collect all necessary dependencies
 block_cipher = None
+
+def get_pandas_path():
+    import pandas
+    return os.path.dirname(pandas.__file__)
+
+def get_site_packages():
+    import site
+    return site.getsitepackages()[0]
 
 # Add any additional data files needed
 added_files = [
@@ -29,7 +39,14 @@ a = Analysis(
         'subprocess',
         'site',
         'os',
-        'sys'
+        'sys',
+        'pip',
+        'pip._internal',
+        'pip._internal.commands',
+        'pip._internal.commands.install',
+        'setuptools',
+        'distutils',
+        'pkg_resources',
     ],
     hookspath=[],
     hooksconfig={},
