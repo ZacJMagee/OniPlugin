@@ -67,23 +67,22 @@ def request_admin():
 
 # Setup application directories and environment
 def setup_environment():
-    app_dir = get_app_data_dir()
-    logs_dir = os.path.join(app_dir, 'logs')
-    data_dir = os.path.join(app_dir, 'data')
-    
-    # Create necessary directories
+    # Create logs directory in the project root
+    logs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
     os.makedirs(logs_dir, exist_ok=True)
-    os.makedirs(data_dir, exist_ok=True)
     
-    # Setup logging
-    log_file = os.path.join(logs_dir, 'error_log.txt')
+    # Setup logging to both file and console
+    log_file = os.path.join(logs_dir, 'app.log')
     logging.basicConfig(
-        filename=log_file,
-        level=logging.ERROR,
-        format='%(asctime)s - %(levelname)s - %(message)s'
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler(sys.stdout)
+        ]
     )
     
-    return app_dir, data_dir
+    return logs_dir
 def check_for_updates():
     try:
         from version import VERSION as current_version
@@ -107,23 +106,18 @@ def check_for_updates():
             return False
     except Exception as e:
         logging.error(f"Error checking for updates: {e}")
-        print(f"Error checking for updates: {e}")
-        return False
-
 def update_codebase():
     try:
         print("Pulling the latest updates from the repository...")
-        subprocess.check_call(['git', 'pull'])
+        # Fetch all changes first
+        subprocess.check_call(['git', 'fetch', '--all'])
+        # Reset to match remote main/master branch
+        subprocess.check_call(['git', 'reset', '--hard', 'origin/main'])
         print("Code updated successfully!")
     except subprocess.CalledProcessError as e:
         logging.error(f"Failed to update codebase: {e}")
         print(f"Failed to update codebase: {e}")
         sys.exit(1)
-
-def update_tool():
-    if not check_for_updates():
-        print("No updates found.")
-        return
 
     user_input = input("Would you like to update to the latest version? (yes/no): ").strip().lower()
     if user_input != "yes":
@@ -264,51 +258,87 @@ def select_model_accounts(device_folder):
                 print(f"Invalid selection. Please enter a number between 1 and {len(models)}")
         except ValueError:
             print("Please enter a valid number.")
-    
-    print(f"\nFinal selection: {', '.join(selected_models)}")
-    return selected_models
-
-# Step 8: Write the selected usernames to the like-source-followers.txt file for each selected model
-def write_usernames_to_likesource(device_folder, models, usernames):
-    base_path = os.path.join(r"C:\Users\Fredrick\Desktop\full_igbot_13.1.3", device_folder)
-    for model in models:
-        model_folder = os.path.join(base_path, model)
-        file_path = os.path.join(model_folder, 'like-source-followers.txt')
-        
-        if not os.path.exists(file_path):
-            print(f"Error: {file_path} not found.")
             continue
 
-        update_txt_file(file_path, usernames)
-        print(f"Usernames have been written to {file_path}")
+def write_usernames_to_likesource(device_folder, models, usernames):
+    try:
+        base_path = os.path.join(r"C:\Users\Fredrick\Desktop\full_igbot_13.1.3", device_folder)
+        if not os.path.exists(base_path):
+            logging.error(f"Device folder not found: {base_path}")
+            print(f"Error: Device folder not found: {base_path}")
+            return False
 
-# Main function
-def main():
-    print("Welcome to the tool!")
+        success_count = 0
+        for model in models:
+            try:
+                model_folder = os.path.join(base_path, model)
+                if not os.path.exists(model_folder):
+                    logging.error(f"Model folder not found: {model_folder}")
+                    print(f"Error: Model folder not found for {model}")
+                    continue
 
-    # Step 0: Check for updates before proceeding
-    update_tool()
+                file_path = os.path.join(model_folder, 'like-source-followers.txt')
+                
+                # Create the file if it doesn't exist
+                if not os.path.exists(file_path):
+                    logging.info(f"Creating new file: {file_path}")
+                    open(file_path, 'w').close()
 
-    # Step 1: Get connected devices
-    devices = get_connected_devices()
-    
-    # Step 2: Let the user select a device
-    selected_device = select_device(devices)
-    if not selected_device:
-        return
-    
-    # Step 3: Let the user select models to update
-    selected_models = select_model_accounts(selected_device)
-    if not selected_models:
-        return
+                update_txt_file(file_path, usernames)
+                print(f"✓ Successfully updated {file_path}")
+                success_count += 1
+                
+            except Exception as e:
+                logging.error(f"Error processing model {model}: {str(e)}")
+                print(f"Error processing model {model}: {str(e)}")
 
-    # Step 4: Read usernames from file
-    usernames_file = "path_to_your_usernames_file.txt"  # Change this to your source usernames file
-    usernames = read_usernames_from_file(usernames_file)
-    
-    if not usernames:
-        print("Error: No usernames found.")
-        return
+        print(f"\nCompleted: Successfully updated {success_count} out of {len(models)} models")
+        return success_count > 0
+
+    except Exception as e:
+        logging.error(f"Error in write_usernames_to_likesource: {str(e)}")
+        print(f"Error updating usernames: {str(e)}")
+        return False
+        # Setup environment and logging
+        logs_dir = setup_environment()
+        logging.info("Application started")
+
+        # Step 1: Get connected devices
+        devices = get_connected_devices()
+        if not devices:
+            print("No devices found. Exiting...")
+            return
+
+        # Step 2: Let user select a device
+        selected_device = select_device(devices)
+        if not selected_device:
+            print("No device selected. Exiting...")
+            return
+
+        # Step 3: Let user select models
+        selected_models = select_model_accounts(selected_device)
+        if not selected_models:
+            print("No models selected. Exiting...")
+            return
+
+        # Step 4: Get usernames file from user
+        usernames_file = input("Please enter the path to your usernames file: ").strip()
+        if not os.path.exists(usernames_file):
+            print(f"Error: File not found: {usernames_file}")
+            return
+
+        # Step 5: Read and process usernames
+        usernames = read_usernames_from_file(usernames_file)
+        if not usernames:
+            print("No usernames found in file. Exiting...")
+            return
+
+        # Step 6: Write usernames to selected models
+        write_usernames_to_likesource(selected_device, selected_models, usernames)
+
+    except Exception as e:
+        logging.error(f"An error occurred: {str(e)}")
+        print(f"An error occurred: {str(e)}")
 
     # Step 5: Write selected usernames to the like-source-followers.txt file for each model
     write_usernames_to_likesource(selected_device, selected_models, usernames)
