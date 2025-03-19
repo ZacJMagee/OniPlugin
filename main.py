@@ -515,14 +515,19 @@ def main():
             input("Press Enter to exit...")
             return
 
-        # Step 3: Let user select models
+        # Step 3: Select which file to update
+        target_file = select_file_type()
+        logging.info(f"Selected file type: {target_file}")
+
+
+        # Step 4: Let user select models
         selected_models = select_model_accounts(selected_device)
         if not selected_models:
             logging.error("No models selected by user")
             print("No models selected. Exiting...")
             input("Press Enter to exit...")
 
-        # Step 4: Read usernames from the random_usernames file in project directory
+        # Step 5: Read usernames from the random_usernames file in project directory
         # Get the application directory whether running as script or frozen executable
         if getattr(sys, 'frozen', False):
             # If the application is run as a bundle (frozen)
@@ -577,11 +582,8 @@ def main():
         print(f"Found {len(usernames)} usernames to process")
         logging.info(f"Processing {len(usernames)} usernames for {len(selected_models)} models")
 
-        # Step 6: Select which file to update
-        target_file = select_file_type()
-        logging.info(f"Selected file type: {target_file}")
         
-        # Step 7: Write usernames to selected models
+        # Step 6: Write usernames to selected models
         success = write_usernames_to_file(selected_device, selected_models, usernames, target_file)
         
         if success:
