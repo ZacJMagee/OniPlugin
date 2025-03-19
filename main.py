@@ -339,8 +339,17 @@ def main():
             input("Press Enter to exit...")
 
         # Step 4: Read usernames from the random_usernames file in project directory
-        project_dir = os.path.dirname(os.path.abspath(__file__))
+        # Get the application directory whether running as script or frozen executable
+        if getattr(sys, 'frozen', False):
+            # If the application is run as a bundle (frozen)
+            project_dir = os.path.dirname(sys.executable)
+        else:
+            # If the application is run from a Python interpreter
+            project_dir = os.path.dirname(os.path.abspath(__file__))
+
         possible_filenames = ['random_usernames', 'random_usernames.txt']
+        
+        print(f"Looking for username files in: {project_dir}")
         
         # Try both possible filenames
         usernames_file = None
