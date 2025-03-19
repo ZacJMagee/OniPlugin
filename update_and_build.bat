@@ -11,8 +11,13 @@ cd /d "%SCRIPT_DIR%"
 :: Create logs directory if it doesn't exist
 if not exist "%SCRIPT_DIR%\logs" mkdir "%SCRIPT_DIR%\logs"
 
-echo Starting build process... > "%SCRIPT_DIR%\logs\build_log.txt"
-echo %date% %time%: Script started >> "%SCRIPT_DIR%\logs\build_log.txt"
+:: Try to create/append to log file with exclusive access
+(
+  echo Starting build process...
+  echo %date% %time%: Script started
+) > "%SCRIPT_DIR%\logs\build_log.txt" 2>nul || (
+  echo Warning: Could not write to log file. It may be in use.
+)
 
 :: Debug point 1
 echo Debug: Current directory is %CD% >> "%SCRIPT_DIR%\logs\build_log.txt"
@@ -46,16 +51,11 @@ if %errorLevel% neq 0 (
     :: Debug point 3
     echo Debug: About to elevate privileges >> "%SCRIPT_DIR%\logs\build_log.txt"
     
-    :: Re-run the script with admin privileges using PowerShell
-    echo Debug: Attempting elevation via PowerShell >> "%SCRIPT_DIR%\logs\build_log.txt"
+    :: Close the log file before elevation to prevent access issues
+    echo Debug: Preparing for elevation >> "%SCRIPT_DIR%\logs\build_log.txt"
     
-    powershell -Command "Start-Process cmd.exe -ArgumentList '/c cd /d ""%SCRIPT_DIR%"" && ""%~f0""' -Verb RunAs -Wait" >> "%SCRIPT_DIR%\logs\build_log.txt" 2>&1
-    if %ERRORLEVEL% equ 0 (
-        echo Debug: PowerShell elevation succeeded >> "%SCRIPT_DIR%\logs\build_log.txt"
-    ) else (
-        echo Debug: PowerShell elevation failed, trying alternative method >> "%SCRIPT_DIR%\logs\build_log.txt"
-        powershell -Command "Start-Process '%~f0' -WorkingDirectory '%SCRIPT_DIR%' -Verb RunAs -Wait" >> "%SCRIPT_DIR%\logs\build_log.txt" 2>&1
-    )
+    :: Use PowerShell to elevate and run the script directly
+    powershell -Command "Start-Process powershell -ArgumentList '-NoProfile -ExecutionPolicy Bypass -Command ""cd ''%SCRIPT_DIR%''; & ''%~f0''""' -Verb RunAs -Wait -WindowStyle Normal"
     exit /b
 Replace lines: 0-0
 ```dosbatch
