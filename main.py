@@ -261,10 +261,12 @@ def select_model_accounts(device_folder):
 
 def write_usernames_to_likesource(device_folder, models, usernames):
     try:
+        logging.info(f"Starting to write usernames for {len(models)} models in device {device_folder}")
         base_path = os.path.join(r"C:\Users\Fredrick\Desktop\full_igbot_13.1.3", device_folder)
         if not os.path.exists(base_path):
-            logging.error(f"Device folder not found: {base_path}")
-            print(f"Error: Device folder not found: {base_path}")
+            error_msg = f"Device folder not found: {base_path}"
+            logging.error(error_msg)
+            print(f"Error: {error_msg}")
             return False
 
         success_count = 0
@@ -301,49 +303,72 @@ def write_usernames_to_likesource(device_folder, models, usernames):
 
 def main():
     try:
-        # Setup environment and logging
+        # Setup environment and logging first thing
         logs_dir = setup_environment()
         logging.info("Application started")
+        print(f"Log file location: {os.path.join(logs_dir, 'app.log')}")
 
         # Step 1: Get connected devices
         devices = get_connected_devices()
         if not devices:
+            logging.error("No devices found")
             print("No devices found. Exiting...")
+            input("Press Enter to exit...")
             return
 
         # Step 2: Let user select a device
         selected_device = select_device(devices)
         if not selected_device:
+            logging.error("No device selected by user")
             print("No device selected. Exiting...")
+            input("Press Enter to exit...")
             return
 
         # Step 3: Let user select models
         selected_models = select_model_accounts(selected_device)
         if not selected_models:
+            logging.error("No models selected by user")
             print("No models selected. Exiting...")
+            input("Press Enter to exit...")
             return
 
         # Step 4: Read usernames from the random_usernames file in project directory
         usernames_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'random_usernames')
         if not os.path.exists(usernames_file):
-            logging.error("random_usernames file not found in project directory")
-            print("Error: random_usernames file not found in project directory")
+            error_msg = "random_usernames file not found in project directory"
+            logging.error(error_msg)
+            print(f"Error: {error_msg}")
+            input("Press Enter to exit...")
             return
 
         print(f"Reading usernames from: {usernames_file}")
         usernames = read_usernames_from_file(usernames_file)
         if not usernames:
+            logging.error("No usernames found in random_usernames file")
             print("No usernames found in random_usernames file. Exiting...")
+            input("Press Enter to exit...")
             return
         
         print(f"Found {len(usernames)} usernames to process")
+        logging.info(f"Processing {len(usernames)} usernames for {len(selected_models)} models")
 
         # Step 6: Write usernames to selected models
-        write_usernames_to_likesource(selected_device, selected_models, usernames)
+        success = write_usernames_to_likesource(selected_device, selected_models, usernames)
+        
+        if success:
+            logging.info("Successfully completed all operations")
+            print("\nAll operations completed successfully!")
+        else:
+            logging.error("Failed to complete all operations")
+            print("\nSome operations failed. Check the log file for details.")
+        
+        input("\nPress Enter to exit...")
 
     except Exception as e:
-        logging.error(f"An error occurred: {str(e)}")
-        print(f"An error occurred: {str(e)}")
+        logging.error(f"An error occurred: {str(e)}", exc_info=True)
+        print(f"\nAn error occurred: {str(e)}")
+        print(f"Check the log file for details: {os.path.join(logs_dir, 'app.log')}")
+        input("\nPress Enter to exit...")
 
 if __name__ == "__main__":
     main()
