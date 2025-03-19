@@ -1,6 +1,9 @@
 @echo off
 setlocal enabledelayedexpansion
 
+:: Enable command echoing for debugging
+echo on
+
 :: Store the current directory
 set "SCRIPT_DIR=%~dp0"
 cd /d "%SCRIPT_DIR%"
@@ -10,6 +13,10 @@ if not exist "%SCRIPT_DIR%\logs" mkdir "%SCRIPT_DIR%\logs"
 
 echo Starting build process... > "%SCRIPT_DIR%\logs\build_log.txt"
 echo %date% %time%: Script started >> "%SCRIPT_DIR%\logs\build_log.txt"
+
+:: Debug point 1
+echo Debug: Current directory is %CD% >> "%SCRIPT_DIR%\logs\build_log.txt"
+echo Debug: Script directory is %SCRIPT_DIR% >> "%SCRIPT_DIR%\logs\build_log.txt"
 
 :: Check for required files
 if not exist "main.py" (
@@ -26,6 +33,9 @@ if not exist "oniplugin.spec" (
     exit /b 1
 )
 
+:: Debug point 2
+echo Debug: Required files found >> "%SCRIPT_DIR%\logs\build_log.txt"
+
 :: Check if we're running with admin privileges
 net session >nul 2>&1
 if %errorLevel% neq 0 (
@@ -33,10 +43,25 @@ if %errorLevel% neq 0 (
     echo Requesting admin rights...
     echo %date% %time%: Requesting admin rights >> "%SCRIPT_DIR%\logs\build_log.txt"
     
-    :: Re-run the script with admin privileges while preserving the working directory
-    powershell -Command "Start-Process cmd -ArgumentList '/c cd /d \"%SCRIPT_DIR%\" && call \"%~nx0\" && pause' -Verb RunAs" -WindowStyle Normal
+    :: Debug point 3
+    echo Debug: About to elevate privileges >> "%SCRIPT_DIR%\logs\build_log.txt"
+    
+    :: Re-run the script with admin privileges using cmd instead of PowerShell
+    echo Debug: Command is: runas /user:Administrator "%~f0" >> "%SCRIPT_DIR%\logs\build_log.txt"
+    runas /savecred /user:Administrator "\"%~f0\""
     exit /b
 )
+
+:: Debug point 4 - If we get here, we have admin rights
+echo Debug: Admin privileges confirmed >> "%SCRIPT_DIR%\logs\build_log.txt"
+
+:: Debug point 5 - Starting main execution
+echo %date% %time%: Admin check passed, continuing with build... >> "%SCRIPT_DIR%\logs\build_log.txt"
+echo Admin check passed, continuing with build...
+echo Debug: Starting main execution >> "%SCRIPT_DIR%\logs\build_log.txt"
+
+:: Add a small delay to ensure log file is written
+timeout /t 2 >nul
 
 :: Check if git is available
 where git >nul 2>&1
