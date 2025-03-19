@@ -342,22 +342,36 @@ def main():
         # Get the application directory whether running as script or frozen executable
         if getattr(sys, 'frozen', False):
             # If the application is run as a bundle (frozen)
-            project_dir = os.path.dirname(sys.executable)
+            base_dir = os.path.dirname(sys.executable)
         else:
             # If the application is run from a Python interpreter
-            project_dir = os.path.dirname(os.path.abspath(__file__))
+            base_dir = os.path.dirname(os.path.abspath(__file__))
 
         possible_filenames = ['random_usernames', 'random_usernames.txt']
         
-        print(f"Looking for username files in: {project_dir}")
+        # Define possible directory locations to search
+        search_dirs = [
+            base_dir,  # Current directory
+            os.path.dirname(base_dir),  # One directory up
+            os.path.join(base_dir, 'data'),  # data subdirectory
+        ]
+
+        print("Searching for username files in the following locations:")
+        for directory in search_dirs:
+            print(f"- {directory}")
         
-        # Try both possible filenames
+        # Try both possible filenames in all possible directories
         usernames_file = None
-        for filename in possible_filenames:
-            temp_path = os.path.join(project_dir, filename)
-            if os.path.exists(temp_path):
-                usernames_file = temp_path
+        for directory in search_dirs:
+            for filename in possible_filenames:
+                temp_path = os.path.join(directory, filename)
+                if os.path.exists(temp_path):
+                    usernames_file = temp_path
+                    print(f"\nFound username file at: {temp_path}")
+                    break
+            if usernames_file:
                 break
+
         
         if not usernames_file:
             print("\nError: Username file not found!")
