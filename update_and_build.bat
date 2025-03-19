@@ -106,7 +106,7 @@ pip uninstall -y pathlib >nul 2>&1
 echo Building executable...
 echo %date% %time%: Starting build process >> "%SCRIPT_DIR%\logs\build_log.txt"
 
-python "%SCRIPT_DIR%\build.py" >> "%SCRIPT_DIR%\logs\build_log.txt" 2>&1
+python "%SCRIPT_DIR%\build.py"
 if %ERRORLEVEL% neq 0 (
     echo Build failed! Check logs\build_log.txt for details
     echo %date% %time%: Build failed with error code %ERRORLEVEL% >> "%SCRIPT_DIR%\logs\build_log.txt"

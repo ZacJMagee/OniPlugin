@@ -118,11 +118,11 @@ def build_executable():
         # Prepare build command
         if os.path.exists('oniplugin.spec'):
             logging.info("Using existing spec file")
-            build_command = ['pyinstaller', 'oniplugin.spec']
+            build_command = [sys.executable, '-m', 'PyInstaller', 'oniplugin.spec', '--noconfirm']
         else:
             logging.info("Using default configuration")
             build_command = [
-                'pyinstaller',
+                sys.executable, '-m', 'PyInstaller',
                 '--name=OniPlugin',
                 '--onefile',
                 '--clean',
@@ -143,26 +143,30 @@ def build_executable():
             if os.path.exists('icon.ico'):
                 build_command.extend(['--icon=icon.ico'])
         
-        # Run the build with detailed output
-        process = subprocess.Popen(
+        # Run the build with direct output
+        print("Running PyInstaller build command:")
+        print(" ".join(build_command))
+        logging.info("Running PyInstaller build command: %s", " ".join(build_command))
+        
+        result = subprocess.run(
             build_command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            universal_newlines=True
+            text=True,
+            check=False  # Don't raise exception immediately
         )
         
-        # Stream output in real-time
-        while True:
-            output = process.stdout.readline()
-            if output:
-                print(output.strip())
-                logging.info(output.strip())
-            error = process.stderr.readline()
-            if error:
-                print(error.strip(), file=sys.stderr)
-                logging.error(error.strip())
-            if output == '' and error == '' and process.poll() is not None:
-                break
+        # Print output
+        if result.stdout:
+            print(result.stdout)
+            logging.info(result.stdout)
+        if result.stderr:
+            print(result.stderr, file=sys.stderr)
+            logging.error(result.stderr)
+            
+        # Check return code
+        if result.returncode != 0:
+            raise subprocess.CalledProcessError(result.returncode, build_command)
                 
         if process.returncode != 0:
             raise subprocess.CalledProcessError(process.returncode, build_command)
