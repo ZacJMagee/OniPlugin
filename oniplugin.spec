@@ -84,8 +84,7 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon='icon.ico' if os.path.exists('icon.ico') else None,
-    version='version.py',
-    version_info=None  # Let PyInstaller use the VSVersionInfo from version.py
+    version_info=None  # Remove version file reference since we're using version_info
 )
 
 # Create dist directory if it doesn't exist

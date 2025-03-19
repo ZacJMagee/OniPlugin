@@ -1,4 +1,6 @@
-VSVersionInfo = {
+from typing import Dict, Tuple, Any
+
+VSVersionInfo: Dict[str, Any] = {
     'FileVersion': (1, 0, 0, 0),
     'ProductVersion': (1, 0, 0, 0),
     'FileFlags': 0,

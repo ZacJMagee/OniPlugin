@@ -3,6 +3,7 @@ import subprocess
 import shutil
 import sys
 import logging
+import ctypes
 from pathlib import Path
 
 # Configure logging
@@ -167,11 +168,8 @@ def build_executable():
             print(result.stderr, file=sys.stderr)
             logging.error(result.stderr)
             
-        # Check return code
         if result.returncode != 0:
             raise subprocess.CalledProcessError(result.returncode, build_command)
-                
-        if process.returncode != 0:
             raise subprocess.CalledProcessError(process.returncode, build_command)
             
         logging.info("Build completed successfully!")
