@@ -104,7 +104,20 @@ def check_for_updates():
             
         # Change to the project root directory temporarily
         print(f"Changing to project root directory: {source_dir}")
-        os.chdir(source_dir)
+        try:
+            os.chdir(source_dir)
+            # Verify we're in the correct directory with git repo
+            git_dir = subprocess.run(
+                ['git', 'rev-parse', '--show-toplevel'],
+                capture_output=True,
+                text=True,
+                check=True
+            ).stdout.strip()
+            print(f"Git repository root confirmed at: {git_dir}")
+        except (subprocess.CalledProcessError, OSError) as e:
+            print(f"\nFailed to access git repository: {e}")
+            logging.error(f"Failed to access git repository: {e}")
+            return False
         
         # Verify git repository location
         try:
@@ -119,21 +132,39 @@ def check_for_updates():
             print(f"No git repository found in: {source_dir}")
         
         try:
-            # Check if we're in a git repository
-            subprocess.run(['git', 'rev-parse', '--git-dir'], 
-                         check=True, capture_output=True, text=True)
+            # First verify we can run git commands in this directory
+            git_check = subprocess.run(['git', 'status'], 
+                                    capture_output=True, 
+                                    text=True)
             
+            if git_check.returncode != 0:
+                print("\nNot able to run git commands in this directory - skipping update check")
+                logging.info("Not able to run git commands - skipping update check")
+                return False
+                
             # Fetch the latest changes
-            subprocess.run(['git', 'fetch', 'origin'], 
-                         check=True, capture_output=True)
+            print("Fetching updates from remote...")
+            fetch_result = subprocess.run(['git', 'fetch', 'origin'], 
+                                       capture_output=True,
+                                       text=True)
+            
+            if fetch_result.returncode != 0:
+                print("\nFailed to fetch updates - skipping update check")
+                logging.info("Failed to fetch updates - skipping update check")
+                return False
             
             # Get number of commits behind origin
             result = subprocess.run(
                 ['git', 'rev-list', 'HEAD..origin/main', '--count'],
                 capture_output=True,
-                text=True,
-                check=True
+                text=True
             )
+            
+            if result.returncode != 0:
+                print("\nFailed to check commit status - skipping update check")
+                logging.info("Failed to check commit status - skipping update check")
+                return False
+                
             commits_behind = int(result.stdout.strip())
             
             if commits_behind > 0:
