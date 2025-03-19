@@ -121,26 +121,68 @@ def update_codebase():
         sys.exit(1)
 
 def update_tool():
-    if check_for_updates():
-        user_input = input("Would you like to update to the latest version? (yes/no): ").strip().lower()
-        if user_input == "yes":
-            update_codebase()
-            print("Rebuilding executable...")
-            try:
-                # Run the build script
-                subprocess.run([sys.executable, 'build.py'], check=True)
-                print("Update and rebuild completed successfully!")
-                print("Please close this window and run the new version from the dist folder.")
-                input("Press Enter to exit...")
-                sys.exit(0)
-            except subprocess.CalledProcessError as e:
-                logging.error(f"Failed to rebuild after update: {e}")
-                print(f"Failed to rebuild after update: {e}")
-                input("Press Enter to continue with current version...")
-        else:
-            print("Update skipped.")
-    else:
+    if not check_for_updates():
         print("No updates found.")
+        return
+
+    user_input = input("Would you like to update to the latest version? (yes/no): ").strip().lower()
+    if user_input != "yes":
+        print("Update skipped.")
+        return
+
+    try:
+        # First, stash any local changes
+        subprocess.run(['git', 'stash'], check=True)
+        
+        # Update the codebase
+        update_codebase()
+        
+        # Get the directory of the current executable
+        if getattr(sys, 'frozen', False):
+            app_path = os.path.dirname(sys.executable)
+        else:
+            app_path = os.path.dirname(os.path.abspath(__file__))
+        
+        print("Rebuilding executable...")
+        
+        build_success = False
+        try:
+            # Run the appropriate build script based on the platform
+            if os.name == 'nt':  # Windows
+                build_script = os.path.join(app_path, 'update_and_build.bat')
+                if os.path.exists(build_script):
+                    subprocess.run([build_script], check=True, shell=True)
+                    build_success = True
+                else:
+                    print("update_and_build.bat not found, using build.py")
+            
+            # If Windows build script failed or we're on another platform
+            if not build_success:
+                subprocess.run([sys.executable, 'build.py'], check=True)
+                build_success = True
+            
+            # If build was successful, exit
+            if build_success:
+                print("\nUpdate and rebuild completed successfully!")
+                print("The new version has been built in the dist folder.")
+                print("This window will close. Please run the new version from the dist folder.")
+                input("Press Enter to exit...")
+                os._exit(0)
+            
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to run build script: {e}")
+            raise  # Re-raise to be caught by outer try block
+            
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Failed during update process: {e}")
+        print(f"\nError during update: {e}")
+        print("Please try updating manually by running update_and_build.bat")
+        input("Press Enter to continue with current version...")
+    except Exception as e:
+        logging.error(f"Unexpected error during update: {e}")
+        print(f"\nUnexpected error: {e}")
+        print("Please try updating manually by running update_and_build.bat")
+        input("Press Enter to continue with current version...")
 
 # Step 3: Update or replace the contents of a text file
 def update_txt_file(file_path, content_list):
@@ -175,9 +217,16 @@ def select_model_accounts(device_folder):
         print(f"Error: Device folder not found: {base_path}")
         return None
 
-    models = [folder for folder in os.listdir(base_path) if os.path.isdir(os.path.join(base_path, folder))]
+    # Filter out system folders and hidden folders (starting with .)
+    models = [
+        folder for folder in os.listdir(base_path)
+        if os.path.isdir(os.path.join(base_path, folder))
+        and not folder.startswith('.')  # Exclude hidden folders
+        and not folder.lower() in ['.stm', '.trash', 'trash', 'temp', 'temporary']  # Exclude specific system folders
+    ]
+    
     if not models:
-        print("Error: No models found in the selected device folder.")
+        print("Error: No valid models found in the selected device folder.")
         return None
 
     # Step 6: Ask if the user wants to update all models
