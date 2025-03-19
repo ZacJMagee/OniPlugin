@@ -87,15 +87,15 @@ def check_for_updates():
         from version import VERSION as current_version
         print("\nChecking for updates...")
         
-        # Get the directory of the original script/source
+        # Get the project root directory
         if getattr(sys, 'frozen', False):
-            # If running as compiled executable
-            source_dir = os.path.dirname(sys.executable)
+            # If running as compiled executable, go up one directory from dist
+            source_dir = os.path.dirname(os.path.dirname(sys.executable))
         else:
             # If running as script
             source_dir = os.path.dirname(os.path.abspath(__file__))
             
-        # Change to the source directory temporarily
+        # Change to the project root directory temporarily
         original_dir = os.getcwd()
         os.chdir(source_dir)
         
@@ -145,10 +145,10 @@ def update_codebase():
     try:
         print("\nStarting update process...")
         
-        # Get the source directory (where the git repo is)
+        # Get the project root directory (where the git repo is)
         if getattr(sys, 'frozen', False):
-            # If running as compiled executable, use the executable's directory
-            source_dir = os.path.dirname(sys.executable)
+            # If running as compiled executable, go up one directory from dist
+            source_dir = os.path.dirname(os.path.dirname(sys.executable))
         else:
             # If running as script, use the script's directory
             source_dir = os.path.dirname(os.path.abspath(__file__))
