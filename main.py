@@ -153,19 +153,62 @@ def check_for_updates():
                 logging.info("Failed to fetch updates - skipping update check")
                 return False
             
-            # Get number of commits behind origin
-            result = subprocess.run(
-                ['git', 'rev-list', 'HEAD..origin/main', '--count'],
+            # Get current branch name
+            branch_result = subprocess.run(
+                ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
                 capture_output=True,
-                text=True
+                text=True,
+                check=True
             )
-            
-            if result.returncode != 0:
-                print("\nFailed to check commit status - skipping update check")
-                logging.info("Failed to check commit status - skipping update check")
-                return False
+            current_branch = branch_result.stdout.strip()
+            print(f"Current branch: {current_branch}")
+
+            # Get number of commits behind origin
+            try:
+                result = subprocess.run(
+                    ['git', 'rev-list', f'HEAD..origin/{current_branch}', '--count'],
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
+                commits_behind = int(result.stdout.strip())
+            except subprocess.CalledProcessError as e:
+                # Check if the remote branch exists
+                remote_check = subprocess.run(
+                    ['git', 'ls-remote', '--heads', 'origin', current_branch],
+                    capture_output=True,
+                    text=True
+                )
                 
-            commits_behind = int(result.stdout.strip())
+                if not remote_check.stdout.strip():
+                    print(f"\nRemote branch 'origin/{current_branch}' not found.")
+                    print("Setting up tracking branch...")
+                    
+                    # Set up tracking branch
+                    try:
+                        subprocess.run(
+                            ['git', 'branch', '--set-upstream-to', f'origin/{current_branch}', current_branch],
+                            check=True,
+                            capture_output=True
+                        )
+                        print(f"Successfully set up tracking for branch '{current_branch}'")
+                        
+                        # Try the commit check again
+                        result = subprocess.run(
+                            ['git', 'rev-list', f'HEAD..origin/{current_branch}', '--count'],
+                            capture_output=True,
+                            text=True,
+                            check=True
+                        )
+                        commits_behind = int(result.stdout.strip())
+                    except subprocess.CalledProcessError:
+                        print(f"\nCould not set up tracking branch - skipping update check")
+                        logging.warning(f"Could not set up tracking for branch '{current_branch}'")
+                        return False
+                else:
+                    print(f"\nError checking commit status: {e.stderr.decode().strip()}")
+                    logging.error(f"Failed to check commit status: {e.stderr.decode().strip()}")
+                    return False
             
             if commits_behind > 0:
                 print(f"\nUpdate available! Current version: {current_version}")
