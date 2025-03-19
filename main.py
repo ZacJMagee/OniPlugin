@@ -87,28 +87,53 @@ def check_for_updates():
         from version import VERSION as current_version
         print("\nChecking for updates...")
         
-        # Fetch the latest changes
-        subprocess.run(['git', 'fetch', 'origin'], check=True, capture_output=True)
-        
-        # Get number of commits behind origin
-        result = subprocess.run(
-            ['git', 'rev-list', 'HEAD..origin/main', '--count'],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        commits_behind = int(result.stdout.strip())
-        
-        if commits_behind > 0:
-            print(f"\nUpdate available! Current version: {current_version}")
-            print(f"Your version is {commits_behind} commits behind the latest version.")
-            
-            # Ask user if they want to update (default is yes)
-            user_input = input("\nWould you like to update to the latest version? (Press Enter for yes, or type 'no'): ").strip().lower()
-            if user_input == '' or user_input == 'yes':
-                return True
+        # Get the directory of the original script/source
+        if getattr(sys, 'frozen', False):
+            # If running as compiled executable
+            source_dir = os.path.dirname(sys.executable)
         else:
-            print(f"\nYou are using the latest version: {current_version}")
+            # If running as script
+            source_dir = os.path.dirname(os.path.abspath(__file__))
+            
+        # Change to the source directory temporarily
+        original_dir = os.getcwd()
+        os.chdir(source_dir)
+        
+        try:
+            # Check if we're in a git repository
+            subprocess.run(['git', 'rev-parse', '--git-dir'], 
+                         check=True, capture_output=True, text=True)
+            
+            # Fetch the latest changes
+            subprocess.run(['git', 'fetch', 'origin'], 
+                         check=True, capture_output=True)
+            
+            # Get number of commits behind origin
+            result = subprocess.run(
+                ['git', 'rev-list', 'HEAD..origin/main', '--count'],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            commits_behind = int(result.stdout.strip())
+            
+            if commits_behind > 0:
+                print(f"\nUpdate available! Current version: {current_version}")
+                print(f"Your version is {commits_behind} commits behind the latest version.")
+                
+                # Ask user if they want to update (default is yes)
+                user_input = input("\nWould you like to update to the latest version? (Press Enter for yes, or type 'no'): ").strip().lower()
+                if user_input == '' or user_input == 'yes':
+                    return True
+            else:
+                print(f"\nYou are using the latest version: {current_version}")
+            
+        except subprocess.CalledProcessError:
+            print("\nNot running from a git repository - skipping update check")
+            logging.info("Not running from a git repository - skipping update check")
+        finally:
+            # Always change back to the original directory
+            os.chdir(original_dir)
         
         return False
     except Exception as e:
@@ -120,51 +145,109 @@ def update_codebase():
     try:
         print("\nStarting update process...")
         
-        # Get the directory of the current script/executable
+        # Get the source directory (where the git repo is)
         if getattr(sys, 'frozen', False):
-            app_path = os.path.dirname(sys.executable)
+            # If running as compiled executable, use the executable's directory
+            source_dir = os.path.dirname(sys.executable)
         else:
-            app_path = os.path.dirname(os.path.abspath(__file__))
+            # If running as script, use the script's directory
+            source_dir = os.path.dirname(os.path.abspath(__file__))
+            
+        # Store original directory to restore later
+        original_dir = os.getcwd()
         
-        # Stash any local changes
-        subprocess.run(['git', 'stash'], check=True, capture_output=True)
-        
-        # Pull the latest changes
-        print("Pulling latest updates...")
-        subprocess.run(['git', 'pull', 'origin', 'main'], check=True)
-        
-        # Run the update and build script
-        print("\nRunning update and build script...")
-        if os.name == 'nt':  # Windows
-            build_script = os.path.join(app_path, 'update_and_build.bat')
-            if os.path.exists(build_script):
-                subprocess.run([build_script], check=True, shell=True)
-                print("\nUpdate and build completed successfully!")
-                print("The application will now close. Please run the new version.")
-                input("Press Enter to exit...")
-                os._exit(0)
-            else:
-                print("Error: update_and_build.bat not found!")
+        try:
+            # Change to source directory for git operations
+            os.chdir(source_dir)
+            
+            # Verify we're in a git repository
+            try:
+                subprocess.run(['git', 'rev-parse', '--git-dir'], 
+                             check=True, capture_output=True, text=True)
+            except subprocess.CalledProcessError:
+                print("\nError: Not in a git repository. Cannot update.")
+                logging.error("Update failed: Not in a git repository")
                 return False
-        else:
-            # For non-Windows systems
-            subprocess.run([sys.executable, 'build.py'], check=True)
-            print("\nUpdate and build completed successfully!")
-            print("The application will now close. Please run the new version.")
-            input("Press Enter to exit...")
-            os._exit(0)
+                
+            print("\nChecking repository status...")
+            
+            # Check for uncommitted changes
+            result = subprocess.run(['git', 'status', '--porcelain'], 
+                                 capture_output=True, text=True, check=True)
+            if result.stdout.strip():
+                print("Stashing local changes...")
+                subprocess.run(['git', 'stash'], check=True, capture_output=True)
+            
+            # Fetch latest changes
+            print("Fetching updates...")
+            subprocess.run(['git', 'fetch', 'origin'], check=True, capture_output=True)
+            
+            # Get current branch
+            result = subprocess.run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                                 capture_output=True, text=True, check=True)
+            current_branch = result.stdout.strip()
+            
+            # Pull latest changes
+            print(f"Pulling latest updates from origin/{current_branch}...")
+            subprocess.run(['git', 'pull', 'origin', current_branch], check=True)
+            
+            print("\nUpdate successful! Building new version...")
+            
+            # Run the appropriate build script
+            if os.name == 'nt':  # Windows
+                build_script = os.path.join(source_dir, 'update_and_build.bat')
+                if os.path.exists(build_script):
+                    try:
+                        subprocess.run([build_script], check=True, shell=True)
+                        print("\nBuild completed successfully!")
+                        print("\nThe application will now close.")
+                        print("Please run the new version from the dist folder.")
+                        input("Press Enter to exit...")
+                        os._exit(0)
+                    except subprocess.CalledProcessError as e:
+                        print(f"\nError during build: {e}")
+                        print("Please try running update_and_build.bat manually")
+                        return False
+                else:
+                    print("\nWarning: update_and_build.bat not found")
+                    print("Please run the build script manually")
+                    return True  # Git update succeeded even if build script not found
+            else:
+                # For non-Windows systems
+                try:
+                    subprocess.run([sys.executable, 'build.py'], check=True)
+                    print("\nBuild completed successfully!")
+                    print("\nThe application will now close.")
+                    print("Please run the new version from the dist folder.")
+                    input("Press Enter to exit...")
+                    os._exit(0)
+                except subprocess.CalledProcessError as e:
+                    print(f"\nError during build: {e}")
+                    print("Please try running build.py manually")
+                    return False
+                    
+        finally:
+            # Always restore original directory
+            os.chdir(original_dir)
             
         return True
         
     except subprocess.CalledProcessError as e:
         logging.error(f"Failed during update process: {e}")
         print(f"\nError during update: {e}")
-        print("Please try updating manually by running update_and_build.bat")
+        print("Please try updating manually:")
+        print("1. Open a terminal in the application directory")
+        print("2. Run: git pull origin main")
+        print("3. Run: update_and_build.bat (Windows) or python build.py (Linux/Mac)")
         return False
+        
     except Exception as e:
         logging.error(f"Unexpected error during update: {e}")
         print(f"\nUnexpected error: {e}")
-        print("Please try updating manually by running update_and_build.bat")
+        print("Please try updating manually:")
+        print("1. Open a terminal in the application directory")
+        print("2. Run: git pull origin main")
+        print("3. Run: update_and_build.bat (Windows) or python build.py (Linux/Mac)")
         return False
 
 # Step 3: Update or replace the contents of a text file
