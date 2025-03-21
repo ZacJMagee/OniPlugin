@@ -1,28 +1,78 @@
-# Ignore Python bytecode files
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
+*$py.class
 
-# Ignore virtual environment directories
-venv/
-env/
+# C extensions
+*.so
 
-# Ignore the build and dist directories from PyInstaller
+# Distribution / packaging
+.Python
 build/
+develop-eggs/
 dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Ignore PyInstaller log files
-*.log
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
 
-# Ignore macOS Finder files
-.DS_Store
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
 
-# Ignore Windows-specific files
-Thumbs.db
+# Jupyter Notebook
+.ipynb_checkpoints
 
-# Ignore the temporary files created by IDEs or editors
+# PyCharm / VS Code
 .idea/
 .vscode/
 
-# Ignore the version control information
-.git/
+# Environment variables and credentials
+.env
+.env.*
+*.env
+
+# Virtual environments
+venv/
+ENV/
+env/
+venv.bak/
+env.bak/
+
+# MyPy and other tooling
+.mypy_cache/
+.dmypy.json
+.pyre/
+.pytype/
+
+# Local SQLite or debug databases
+*.sqlite3
+*.db
+
+# Logs
+*.log
+
+# Custom project-specific ignores
+ContentScheduler/credentials.json
+ContentScheduler/token.json
 
