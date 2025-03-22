@@ -2,12 +2,8 @@ import os
 import subprocess
 import sys
 import logging
-import site
-import json
-from pathlib import Path
 import ctypes
 import re
-from packaging import version
 
 # Function to read usernames from a file
 def read_usernames_from_file(file_path):
@@ -45,24 +41,6 @@ def get_connected_devices():
         print(f"Error getting connected devices: {e}")
         return []
 
-# Get the application data directory
-def get_app_data_dir():
-    if sys.platform == 'win32':
-        return os.path.join(os.environ['LOCALAPPDATA'], 'OniPlugin')
-    return os.path.expanduser('~/.oniplugin')
-
-# Ensure we have admin rights on Windows
-def is_admin():
-    try:
-        return ctypes.windll.shell32.IsUserAnAdmin()
-    except:
-        return False
-
-def request_admin():
-    if sys.platform == 'win32':
-        if not is_admin():
-            ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
-            sys.exit(0)
 
 # Setup application directories and environment
 def setup_environment():
@@ -82,261 +60,6 @@ def setup_environment():
     )
     
     return logs_dir
-def check_for_updates():
-    try:
-        from version import VERSION as current_version
-        print("\nChecking for updates...")
-        
-        # Get the project root directory
-        original_dir = os.getcwd()
-        
-        if getattr(sys, 'frozen', False):
-            # If running as compiled executable, go up one directory from dist
-            executable_dir = os.path.dirname(sys.executable)
-            source_dir = os.path.dirname(executable_dir)
-        else:
-            # If running as script
-            source_dir = os.path.dirname(os.path.abspath(__file__))
-            
-        # Change to the project root directory temporarily
-        try:
-            os.chdir(source_dir)
-            # Verify we're in the correct directory with git repo
-            git_dir = subprocess.run(
-                ['git', 'rev-parse', '--show-toplevel'],
-                capture_output=True,
-                text=True,
-                check=True
-            ).stdout.strip()
-            print(f"Git repository root confirmed at: {git_dir}")
-        except (subprocess.CalledProcessError, OSError) as e:
-            print(f"\nFailed to access git repository: {e}")
-            logging.error(f"Failed to access git repository: {e}")
-            return False
-        
-        # Verify git repository location
-        try:
-            git_dir = subprocess.run(
-                ['git', 'rev-parse', '--git-dir'],
-                capture_output=True,
-                text=True,
-                check=True
-            ).stdout.strip()
-            print(f"Found git repository at: {os.path.abspath(git_dir)}")
-        except subprocess.CalledProcessError:
-            print(f"No git repository found in: {source_dir}")
-        
-        try:
-            # First verify we can run git commands in this directory
-            git_check = subprocess.run(['git', 'status'], 
-                                    capture_output=True, 
-                                    text=True)
-            
-            if git_check.returncode != 0:
-                print("\nNot able to run git commands in this directory - skipping update check")
-                logging.info("Not able to run git commands - skipping update check")
-                return False
-                
-            # Fetch the latest changes
-            print("Fetching updates from remote...")
-            fetch_result = subprocess.run(['git', 'fetch', 'origin'], 
-                                       capture_output=True,
-                                       text=True)
-            
-            if fetch_result.returncode != 0:
-                print("\nFailed to fetch updates - skipping update check")
-                logging.info("Failed to fetch updates - skipping update check")
-                return False
-            
-            # Get current branch name
-            branch_result = subprocess.run(
-                ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            current_branch = branch_result.stdout.strip()
-            print(f"Current branch: {current_branch}")
-
-            # Get number of commits behind origin
-            try:
-                result = subprocess.run(
-                    ['git', 'rev-list', f'HEAD..origin/{current_branch}', '--count'],
-                    capture_output=True,
-                    text=True,
-                    check=True
-                )
-                commits_behind = int(result.stdout.strip())
-            except subprocess.CalledProcessError as e:
-                # Check if the remote branch exists
-                remote_check = subprocess.run(
-                    ['git', 'ls-remote', '--heads', 'origin', current_branch],
-                    capture_output=True,
-                    text=True
-                )
-                
-                if not remote_check.stdout.strip():
-                    print(f"\nRemote branch 'origin/{current_branch}' not found.")
-                    print("Setting up tracking branch...")
-                    
-                    # Set up tracking branch
-                    try:
-                        subprocess.run(
-                            ['git', 'branch', '--set-upstream-to', f'origin/{current_branch}', current_branch],
-                            check=True,
-                            capture_output=True
-                        )
-                        print(f"Successfully set up tracking for branch '{current_branch}'")
-                        
-                        # Try the commit check again
-                        result = subprocess.run(
-                            ['git', 'rev-list', f'HEAD..origin/{current_branch}', '--count'],
-                            capture_output=True,
-                            text=True,
-                            check=True
-                        )
-                        commits_behind = int(result.stdout.strip())
-                    except subprocess.CalledProcessError:
-                        print(f"\nCould not set up tracking branch - skipping update check")
-                        logging.warning(f"Could not set up tracking for branch '{current_branch}'")
-                        return False
-                else:
-                    print(f"\nError checking commit status: {e.stderr.decode().strip()}")
-                    logging.error(f"Failed to check commit status: {e.stderr.decode().strip()}")
-                    return False
-            
-            if commits_behind > 0:
-                print(f"\nUpdate available! Current version: {current_version}")
-                print(f"Your version is {commits_behind} commits behind the latest version.")
-                
-                # Ask user if they want to update (default is yes)
-                user_input = input("\nWould you like to update to the latest version? (Press Enter for yes, or type 'no'): ").strip().lower()
-                if user_input == '' or user_input == 'yes':
-                    return True
-            else:
-                print(f"\nYou are using the latest version: {current_version}")
-            
-        except subprocess.CalledProcessError:
-            print("\nNot running from a git repository - skipping update check")
-            logging.info("Not running from a git repository - skipping update check")
-        finally:
-            # Always change back to the original directory
-            os.chdir(original_dir)
-        
-        return False
-    except Exception as e:
-        logging.error(f"Error checking for updates: {e}")
-        print(f"Error checking for updates: {e}")
-        return False
-
-def update_codebase():
-    try:
-        print("\nStarting update process...")
-        
-        # Get the project root directory (where the git repo is)
-        if getattr(sys, 'frozen', False):
-            # If running as compiled executable, go up one directory from dist
-            source_dir = os.path.dirname(os.path.dirname(sys.executable))
-        else:
-            # If running as script, use the script's directory
-            source_dir = os.path.dirname(os.path.abspath(__file__))
-            
-        # Store original directory to restore later
-        original_dir = os.getcwd()
-        
-        try:
-            # Change to source directory for git operations
-            os.chdir(source_dir)
-            
-            # Verify we're in a git repository
-            try:
-                subprocess.run(['git', 'rev-parse', '--git-dir'], 
-                             check=True, capture_output=True, text=True)
-            except subprocess.CalledProcessError:
-                print("\nError: Not in a git repository. Cannot update.")
-                logging.error("Update failed: Not in a git repository")
-                return False
-                
-            print("\nChecking repository status...")
-            
-            # Check for uncommitted changes
-            result = subprocess.run(['git', 'status', '--porcelain'], 
-                                 capture_output=True, text=True, check=True)
-            if result.stdout.strip():
-                print("Stashing local changes...")
-                subprocess.run(['git', 'stash'], check=True, capture_output=True)
-            
-            # Fetch latest changes
-            print("Fetching updates...")
-            subprocess.run(['git', 'fetch', 'origin'], check=True, capture_output=True)
-            
-            # Get current branch
-            result = subprocess.run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                                 capture_output=True, text=True, check=True)
-            current_branch = result.stdout.strip()
-            
-            # Pull latest changes
-            print(f"Pulling latest updates from origin/{current_branch}...")
-            subprocess.run(['git', 'pull', 'origin', current_branch], check=True)
-            
-            print("\nUpdate successful! Building new version...")
-            
-            # Run the appropriate build script
-            if os.name == 'nt':  # Windows
-                build_script = os.path.join(source_dir, 'update_and_build.bat')
-                if os.path.exists(build_script):
-                    try:
-                        subprocess.run([build_script], check=True, shell=True)
-                        print("\nBuild completed successfully!")
-                        print("\nThe application will now close.")
-                        print("Please run the new version from the dist folder.")
-                        input("Press Enter to exit...")
-                        os._exit(0)
-                    except subprocess.CalledProcessError as e:
-                        print(f"\nError during build: {e}")
-                        print("Please try running update_and_build.bat manually")
-                        return False
-                else:
-                    print("\nWarning: update_and_build.bat not found")
-                    print("Please run the build script manually")
-                    return True  # Git update succeeded even if build script not found
-            else:
-                # For non-Windows systems
-                try:
-                    subprocess.run([sys.executable, 'build.py'], check=True)
-                    print("\nBuild completed successfully!")
-                    print("\nThe application will now close.")
-                    print("Please run the new version from the dist folder.")
-                    input("Press Enter to exit...")
-                    os._exit(0)
-                except subprocess.CalledProcessError as e:
-                    print(f"\nError during build: {e}")
-                    print("Please try running build.py manually")
-                    return False
-                    
-        finally:
-            # Always restore original directory
-            os.chdir(original_dir)
-            
-        return True
-        
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Failed during update process: {e}")
-        print(f"\nError during update: {e}")
-        print("Please try updating manually:")
-        print("1. Open a terminal in the application directory")
-        print("2. Run: git pull origin main")
-        print("3. Run: update_and_build.bat (Windows) or python build.py (Linux/Mac)")
-        return False
-        
-    except Exception as e:
-        logging.error(f"Unexpected error during update: {e}")
-        print(f"\nUnexpected error: {e}")
-        print("Please try updating manually:")
-        print("1. Open a terminal in the application directory")
-        print("2. Run: git pull origin main")
-        print("3. Run: update_and_build.bat (Windows) or python build.py (Linux/Mac)")
-        return False
 
 # Step 3: Update or replace the contents of a text file
 def update_txt_file(file_path, content_list):
@@ -456,9 +179,11 @@ def select_file_type():
     print("3. follow-source-followers.txt")
     print("4. follow users likers")
     print("5. like posts of specific accs")
+    print("6. exclude names - followers")
+    print("7. exclude names - likes")
     
     while True:
-        response = input("\nEnter your choice (Press Enter for option 1, or type '2', '3', '4', or '5'): ").strip()
+        response = input("\nEnter your choice (Press Enter for option 1, or type '2', '3', '4', '5', '6', or '7'): ").strip()
         
         if response == '':
             return 'like-source-followers.txt'
@@ -470,6 +195,10 @@ def select_file_type():
             return 'follow-likers-sources.txt'  # New option for following users' likers
         elif response == '5':
             return 'like_posts_specific.txt'  # New option for liking posts of specific accounts
+        elif response == '6':
+            return 'name_must_not_include.txt'  # Option for excluding names from followers
+        elif response == '7':
+            return 'name_must_not_include_likes.txt'  # Option for excluding names from likes
         else:
             print("Invalid selection. Please try again.")
             continue
@@ -553,12 +282,6 @@ def main():
 
         while True:  # Main program loop
             # Check for updates first (only on first run)
-            if check_for_updates():
-                if update_codebase():
-                    return  # Exit after successful update
-                else:
-                    print("\nContinuing with current version...")
-
             # Step 1: Get connected devices
             devices = get_connected_devices()
             if not devices:
@@ -599,7 +322,7 @@ def main():
                 else:
                     continue
 
-            # Step 5: Read usernames from the random_usernames file in project directory
+            # Step 5: Read usernames from the appropriate file based on target file type
             # Get the application directory whether running as script or frozen executable
             if getattr(sys, 'frozen', False):
                 # If the application is run as a bundle (frozen)
@@ -608,7 +331,11 @@ def main():
                 # If the application is run from a Python interpreter
                 base_dir = os.path.dirname(os.path.abspath(__file__))
 
-            possible_filenames = ['random_usernames', 'random_usernames.txt']
+            # Determine which source file to use based on target file type
+            if target_file in ['names_must_not_include.txt', 'name_must_not_include_likes.txt']:
+                possible_filenames = ['exclude_names.txt']
+            else:
+                possible_filenames = ['random_usernames', 'random_usernames.txt']
             
             # Define possible directory locations to search
             search_dirs = [
@@ -624,11 +351,16 @@ def main():
                     temp_path = os.path.join(directory, filename)
                     if os.path.exists(temp_path):
                         usernames_file = temp_path
-                        break
-                if usernames_file:
-                    break
-
             if not usernames_file:
+                if target_file in ['names_must_not_include.txt', 'name_must_not_include_likes.txt']:
+                    print("\nError: exclude_names.txt file not found!")
+                    print("Please ensure exclude_names.txt exists in the same directory as the script.")
+                    logging.error("exclude_names.txt file not found")
+                else:
+                    print("\nError: Username file not found!")
+                    print("Expected filenames:", possible_filenames)
+                    print("\nPlease ensure one of these files exists in the project directory.")
+                    logging.error(f"Username file not found. Searched for: {possible_filenames}")
                 print("\nError: Username file not found!")
                 print("Expected filenames:", possible_filenames)
                 print("\nPlease ensure one of these files exists in the project directory.")
