@@ -4,13 +4,11 @@ import uuid
 import re
 import json
 from pyairtable import Api
-from pyairtable.formulas import match
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
-from download_content import process_content_schedule, select_profile
+from .download_content import process_content_schedule, select_profile
 
-# ✅ Base directories
 BASE_DIR = "/home/zacm/onimator"
 SHARED_CONTENT_DIR = "/home/zacm/shared_content_scheduler"
 
@@ -18,7 +16,6 @@ WINDOWS_SHARED_PREFIX = r'C:\Users\Fredrick\shared_content_scheduler'
 LINUX_SHARED_PREFIX = '/home/zacm/shared_content_scheduler'
 
 def convert_linux_to_windows_path(linux_path):
-    """Convert a Linux path to a full Windows path based on shared sync folder."""
     relative = os.path.relpath(linux_path, LINUX_SHARED_PREFIX)
     windows_path = os.path.join(WINDOWS_SHARED_PREFIX, relative)
     return windows_path.replace('/', '\\')
@@ -37,7 +34,6 @@ def insert_post(
     is_published=0,
     skip_all_duplicates=False
 ):
-    """Insert a post into the scheduled_post database, checking for duplicate captions."""
     try:
         if skip_all_duplicates:
             print("⏭️ Skipping due to 'skip all duplicates for this account' setting.")
@@ -113,29 +109,23 @@ def insert_post(
         print(f"❌ Error inserting post: {e}")
         return None
 
-# 🔧 Device Detection - Matches Your Other Script Logic
 def get_connected_devices():
-    """Retrieve connected Android devices (folders matching device ID format)."""
     try:
         device_pattern = re.compile(r'^[A-Z0-9]+$')  # Only capital letters and numbers
-
         devices = [
             folder for folder in os.listdir(BASE_DIR)
             if os.path.isdir(os.path.join(BASE_DIR, folder))
             and device_pattern.match(folder)
-            and len(folder) >= 10  # Android device IDs are usually 10+ characters
+            and len(folder) >= 10
         ]
-
         if not devices:
             print("❌ No valid Android devices found.")
-        
         return devices
     except Exception as e:
         print(f"❌ Error getting connected devices: {e}")
         return []
 
 def select_device(devices):
-    """Let the user select a device from the available list."""
     if not devices:
         print("❌ No connected devices found.")
         return None
@@ -154,10 +144,8 @@ def select_device(devices):
     print("❌ Invalid selection.")
     return None
 
-# 🔧 Account (Model) Selection - Follows Your Script Flow
 def load_config():
-    """Load the configuration from config.json"""
-    config_path = os.path.join(os.path.dirname(__file__), 'config.json')
+    config_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'config.json')
     try:
         with open(config_path, 'r') as f:
             return json.loads(f.read())
@@ -165,70 +153,119 @@ def load_config():
         print(f"❌ Error loading config.json: {e}")
         return None
 
-def select_models(device_folder):
-    """Let the user select one or more accounts (models) from device folder."""
-    path = os.path.join(BASE_DIR, device_folder)
+# Updated select_accounts function:
+def select_accounts(device_accounts):
+    """
+    Allows selection of accounts using comma-separated numbers and ranges.
+    If the user presses Enter (i.e., update all accounts), no extra confirmations are shown.
+    Otherwise, a removal option is provided.
+    Returns the final list of selected accounts.
+    """
+    sorted_accounts = sorted(device_accounts, key=lambda x: x.lower())
     
-    # Filter out system folders and hidden folders
-    models = [
-        folder for folder in os.listdir(path)
-        if os.path.isdir(os.path.join(path, folder))
-        and not folder.startswith('.')  # Exclude hidden folders
-        and not folder.lower() in ['.stm', '.trash', 'trash', 'temp', 'temporary', 'camera', 'crash_log', 'snapshot']  # Exclude system folders
-    ]
-
-    if not models:
-        print("❌ No valid models found in the selected device folder.")
-        return None
-
-    # Ask if user wants to update all models (default is yes)
-    select_all = input("\nDo you want to update all models? (Press Enter for yes, or type 'no'): ").strip().lower()
-
-    if select_all == '' or select_all == 'yes':
-        selected_accounts = device_accounts
-        update_all = True
+    print("\n📱 Available Device Accounts (sorted alphabetically):")
+    for i, account in enumerate(sorted_accounts, 1):
+        print(f"{i}. {account}")
+    
+    user_input = input(
+        "\nEnter account numbers separated by commas or ranges (e.g., 1,3-5), "
+        "or press Enter to select all accounts: "
+    ).strip()
+    
+    if user_input == "":
+        return sorted_accounts.copy()
     else:
-        selected_accounts = []
-        update_all = True
-
-        print(f"\n✅ Selected all models: {', '.join(models)}")
-        return models
-
-    # Manual selection mode
-    selected_models = []
-    print("\n👤 Available models:")
-    for i, model in enumerate(models, 1):
-        print(f"{i}. {model}")
-    print("\nEnter model numbers one at a time. Enter 0 when done.")
-
-    while True:
-        try:
-            model_index = int(input("\nSelect model number (0 to finish): ")) - 1
-            
-            # Check if user wants to finish selection
-            if model_index == -1:  # User entered 0
-                if selected_models:  # If we have selections
-                    print(f"\n✅ Final selected models: {', '.join(selected_models)}")
-                    return selected_models
-                else:  # If no selections yet, confirm exit
-                    confirm = input("❌ No models selected. Are you sure you want to exit? (Press Enter for yes, or type 'no'): ").lower()
-                    if confirm == '' or confirm == 'yes':
-                        return []
-                    continue
-
-            # Validate selection
-            if 0 <= model_index < len(models):
-                model = models[model_index]
-                if model in selected_models:
-                    print(f"⚠️ Model '{model}' is already selected.")
-                else:
-                    selected_models.append(model)
-                    print(f"✅ Added '{model}'. Currently selected models: {', '.join(selected_models)}")
+        selected_indices = set()
+        for token in user_input.split(","):
+            token = token.strip()
+            if "-" in token:
+                try:
+                    start_str, end_str = token.split("-")
+                    start, end = int(start_str), int(end_str)
+                    if start > end:
+                        print(f"❌ Invalid range: {token}")
+                        continue
+                    for num in range(start, end + 1):
+                        selected_indices.add(num - 1)
+                except ValueError:
+                    print(f"❌ Invalid range input: {token}")
             else:
-                print(f"❌ Invalid selection. Please enter a number between 1 and {len(models)}")
-        except ValueError:
-            print("❌ Please enter a valid number.")
-if __name__ == "__main__":
+                try:
+                    num = int(token)
+                    selected_indices.add(num - 1)
+                except ValueError:
+                    print(f"❌ Invalid number: {token}")
+        selected_indices = {i for i in selected_indices if 0 <= i < len(sorted_accounts)}
+        selected_accounts = [sorted_accounts[i] for i in sorted(selected_indices)]
+        
+        if not selected_accounts:
+            print("❌ No valid accounts selected. Please try again.")
+            return select_accounts(device_accounts)
+        
+        print("\nYou've selected the following accounts:")
+        for idx, account in enumerate(selected_accounts, 1):
+            print(f"{idx}. {account}")
+        
+        removal_input = input(
+            "\nIf you want to remove any accounts, enter their numbers (e.g., 2,4 or 1-3), "
+            "or press Enter to continue: "
+        ).strip()
+        if removal_input:
+            removal_indices = set()
+            for token in removal_input.split(","):
+                token = token.strip()
+                if "-" in token:
+                    try:
+                        start_str, end_str = token.split("-")
+                        start, end = int(start_str), int(end_str)
+                        if start > end:
+                            print(f"❌ Invalid range: {token}")
+                            continue
+                        for num in range(start, end + 1):
+                            removal_indices.add(num - 1)
+                    except ValueError:
+                        print(f"❌ Invalid range input: {token}")
+                else:
+                    try:
+                        num = int(token)
+                        removal_indices.add(num - 1)
+                    except ValueError:
+                        print(f"❌ Invalid number: {token}")
+            removal_indices = {i for i in removal_indices if 0 <= i < len(selected_accounts)}
+            if removal_indices:
+                selected_accounts = [
+                    account for idx, account in enumerate(selected_accounts) if idx not in removal_indices
+                ]
+                print("\nUpdated selection:")
+                for idx, account in enumerate(selected_accounts, 1):
+                    print(f"{idx}. {account}")
+        return selected_accounts
+
+# New helper function for fetching valid usernames from the Active Accounts table:
+def get_valid_usernames_for_model(api_key, base_id, active_accounts_table_id, model_name):
+    """
+    Fetch the list of valid usernames for a given model from the 'Active Accounts' table.
+    Since the table only contains a 'Username' field, this function fetches all records.
+    Returns a set of usernames (strings).
+    """
+    from pyairtable import Api
+    try:
+        api = Api(api_key)
+        base = api.base(base_id)
+        table = base.table(active_accounts_table_id)
+        records = table.all()
+        valid_usernames = set()
+        for rec in records:
+            fields = rec.get("fields", {})
+            username = fields.get("Username")
+            if username:
+                valid_usernames.add(username.strip().lower())
+        return valid_usernames
+    except Exception as e:
+        print(f"❌ Error fetching valid usernames for model '{model_name}': {e}")
+        return set()
+
+def main():
     load_dotenv()
     print("\n📱 Instagram Post Scheduler")
     print("=" * 50)
@@ -282,50 +319,38 @@ if __name__ == "__main__":
         folder for folder in os.listdir(device_path)
         if os.path.isdir(os.path.join(device_path, folder))
         and not folder.startswith('.')
-        and not folder.lower() in ['.stm', '.trash', 'trash', 'temp', 'temporary', 'camera', 'crash_log', 'log']
+        and folder.lower() not in ['.stm', '.trash', 'trash', 'temp', 'temporary', 'camera', 'crash_log', 'log']
     ]
 
     if not device_accounts:
         print("❌ No accounts found in device folder.")
         exit()
 
-    print("\n📱 Available Device Accounts:")
-    for i, account in enumerate(device_accounts, 1):
-        print(f"{i}. {account}")
+    # Fetch valid usernames from the Active Accounts table.
+    active_accounts_table_id = model_config.get('active_accounts_table_id')
+    if not active_accounts_table_id:
+        print("❌ No 'active_accounts_table_id' found in config for this model.")
+        exit()
 
-    select_all = input("\nDo you want to update all accounts? (Press Enter for yes, or type 'no'): ").strip().lower()
+    valid_usernames = get_valid_usernames_for_model(
+        api_key=airtable_pat,
+        base_id=model_config['base_id'],
+        active_accounts_table_id=active_accounts_table_id,
+        model_name=selected_model
+    )
 
-    update_all = False
-    if select_all == '' or select_all == 'yes':
-        update_all = True
-        selected_accounts = device_accounts
-        print(f"\n✅ Selected all accounts: {', '.join(selected_accounts)}")
-    else:
-        selected_accounts = []
-        print("\nEnter account numbers one at a time. Enter 0 when done.")
-        while True:
-            try:
-                idx = int(input("\nSelect account number (0 to finish): ")) - 1
-                if idx == -1:
-                    if selected_accounts:
-                        print(f"\n✅ Final selected accounts: {', '.join(selected_accounts)}")
-                        break
-                    else:
-                        confirm = input("❌ No accounts selected. Exit? (Enter = yes, type 'no' to stay): ").lower()
-                        if confirm == '' or confirm == 'yes':
-                            exit()
-                        continue
-                if 0 <= idx < len(device_accounts):
-                    account = device_accounts[idx]
-                    if account in selected_accounts:
-                        print(f"⚠️ Account '{account}' is already selected.")
-                    else:
-                        selected_accounts.append(account)
-                        print(f"✅ Added '{account}'. Currently selected: {', '.join(selected_accounts)}")
-                else:
-                    print(f"❌ Invalid selection. Enter a number between 1 and {len(device_accounts)}")
-            except ValueError:
-                print("❌ Please enter a valid number.")
+    # Filter device accounts to only those matching valid usernames (case-insensitive).
+    filtered_device_accounts = [
+        acc for acc in device_accounts
+        if acc.strip().lower() in valid_usernames
+    ]
+
+    if not filtered_device_accounts:
+        print("❌ No valid accounts found on the device for this model.")
+        exit()
+
+    selected_accounts = select_accounts(filtered_device_accounts)
+    print(f"\n✅ Final selected accounts: {', '.join(selected_accounts)}")
 
     success_accounts = []
     failed_accounts = []
@@ -426,4 +451,7 @@ if __name__ == "__main__":
     print(f"❌ Failed accounts: {len(failed_accounts)}")
     if failed_accounts:
         print("   → " + ", ".join(failed_accounts))
+
+if __name__ == "__main__":
+    main()
 

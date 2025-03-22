@@ -40,10 +40,10 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
-# Jupyter Notebook
+# Jupyter Notebook checkpoints
 .ipynb_checkpoints
 
-# PyCharm / VS Code
+# IDEs and editors
 .idea/
 .vscode/
 
@@ -71,8 +71,10 @@ env.bak/
 
 # Logs
 *.log
+onimator_plugin/logs/
 
-# Custom project-specific ignores
-ContentScheduler/credentials.json
-ContentScheduler/token.json
+# Sensitive configuration (do not commit credentials)
+onimator_plugin/config/credentials.json
+onimator_plugin/config/token.json
+onimator_plugin/content_scheduler/token.json
 

@@ -49,7 +49,8 @@ def authenticate_google_drive():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     
     # Define paths relative to the script location
-    credentials_path = os.path.join(current_dir, 'credentials.json')
+    credentials_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'credentials.json')
+
     token_path = os.path.join(current_dir, 'token.json')
     
     creds = None
