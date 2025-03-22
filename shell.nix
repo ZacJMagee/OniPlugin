@@ -38,6 +38,9 @@
     
     # Optional extras for file handling
     pillow  # For image processing
+
+    # Progress Bar
+    tqdm
   ]);
 
 in pkgs.mkShell {
@@ -55,9 +58,6 @@ in pkgs.mkShell {
     echo "Instagram Content Manager Development Environment"
     echo "Python version: $(python --version)"
     echo "Python development environment ready!"
-    
-    # Create basic directory structure
-    mkdir -p downloaded_media
     
     # Launch zsh
     exec zsh
